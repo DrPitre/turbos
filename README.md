@@ -1,14 +1,25 @@
 # TurbOS
 
-## Introduction
+## Overview
 
-TurbOS is a Real-Time Operating System (RTOS) for the [Turbo9](http://github.com/turbo9team/turbo9).
-It takes inspiration from the 6809-based [OS-9 operating system](https://en.wikipedia.org/wiki/OS-9) that was once available from [Microware Systems Corporation](http://www.microware.com/), as well as the [NitrOS-9 Project](http://github.com/n6il/nitros9).
-However, it isn't tied to the designs and assumptions of those operating systems.
+**TurbOS** is a Real-Time Operating System (RTOS) for the [Turbo9](http://github.com/turbo9team/turbo9), a modern reimplementation of the classic 6809 CPU. Inspired by the 6809-based [OS-9 operating system](https://en.wikipedia.org/wiki/OS-9) (originally from [Microware Systems Corporation](http://www.microware.com/)) and the [NitrOS-9 Project](http://github.com/n6il/nitros9), TurbOS is designed to leverage the extensibility of the Turbo9, providing a flexible and modern RTOS environment. It is not tied to the legacy designs or assumptions of its predecessors.
 
-The Turbo9 is a modern implementation of the classic 6809 instruction set, and as such, is extensible.
-With careful consideration for new features and instructions that the Turbo9 may implement, TurbOS aspires to be the operating system that takes
-advantage of the Turbo9 as it evolves.
+### Key Features
+
+- **Primary Target:** Turbo9 CPU, with additional ports for the Tandy Color Computer (CoCo) and Foenix F256 (FNX6809) for testing and bring-up.
+- **Architecture:** Modular, with separate kernel, modules, and command sources.
+- **Multi-Platform Support:**
+  - **CoCo Port:** Builds a bootable disk image for use on real hardware or emulators.
+  - **F256 Port:** Supports the Foenix F256, with build and upload tools.
+  - **Turbo9 Simulator Port:** Enables development and testing on a Turbo9 simulator.
+- **Testing:** Includes C-based utilities for run-length encoding/decoding and other validation.
+- **Philosophy:** TurbOS aims to be the reference RTOS for the Turbo9, evolving alongside the CPU and supporting 6809 enthusiasts and developers.
+
+### Directory Structure
+
+- `ports/` — Platform-specific files for CoCo, F256, and Turbo9 simulator.
+- `source/` — Core OS code: kernel, modules, commands.
+- `tests/` — Test programs and utilities.
 
 ## FAQ
 

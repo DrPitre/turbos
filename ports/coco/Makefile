@@ -57,7 +57,7 @@ gh:
 	open "http://www.github.com/boisy/turbos"
 
 xroar_mac: dsk
-	/Applications/Xroar.app/Contents/MacOS/xroar --load-fd0 turbos.dsk
+	/Applications/Xroar.app/Contents/MacOS/xroar --load-fd0 vdg.dsk
 
 emu_baseline: baseline.dsk
 	mame -d -inipath ~/mame -cfg_directory ~/mame/cfg coco2b -flop1 $^ -nothrottle
