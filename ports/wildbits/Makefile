@@ -1,4 +1,4 @@
-PORTNAME	= f256
+PORTNAME	= wildbits
 
 ifndef TURBOSDIR
 	TURBOSDIR=$(HOME)/Projects/turbos
