@@ -51,7 +51,7 @@ vdg.dsk: $(MODULES) $(OBJS_VDG)
 	decb copy -b -2 cocoloader $@,KERNEL.BIN
 
 clean:
-	-$(RM) $(OBJS_BASELINE) $(OBJS_VDG) kernel.rom kernel.dump cocoloader *.dsk
+	-$(RM) $(OBJS_BASELINE) $(OBJS_VDG) kernel.rom kernel.dump cocoloader *.dsk *.list *.map
 
 gh:
 	open "http://www.github.com/boisy/turbos"

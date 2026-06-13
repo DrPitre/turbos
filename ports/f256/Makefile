@@ -37,7 +37,7 @@ loader: $(OBJS)
 	ls -l loader
 
 clean:
-	-$(RM) $(OBJS) kernel.rom loader kernel.dump
+	-$(RM) $(OBJS) kernel.rom loader kernel.dump *.list *.map
 
 gh:
 	open "http://www.github.com/boisy/turbos"
