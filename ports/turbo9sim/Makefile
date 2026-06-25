@@ -42,6 +42,7 @@ KERNELS  = kernel_full kernel_uio kernel_min
 OBJS_FULL = kernel_full init tkt9sim_full ioman_full scf scvt term go_fork shell mfree mdir procs
 OBJS_UIO = kernel_uio init tkt9sim_uio ioman_uio scf scvt term $(COMMANDS)
 OBJS_MIN = kernel_min init tkt9sim_min $(COMMANDS)
+OBJS_SMOKE = kernel_min init tkt9sim_min go_smoke
 
 all:	turbos_full.img turbos_uio.img turbos_min.img
 	ls -l turbos_full.img.rom turbos_uio.img.rom turbos_min.img.rom
@@ -77,6 +78,9 @@ tkt9sim_uio: tkt9sim.asm
 	$(AS) $(KERNEL_UIO) $? -o$@
 	
 tkt9sim_min: tkt9sim.asm
+	$(AS) $(KERNEL_MIN) $? -o$@
+
+go_smoke: go_smoke.asm
 	$(AS) $(KERNEL_MIN) $? -o$@
 	
 lint: *.asm $(KERNEL_SOURCES) $(MODULE_SOURCES)
@@ -114,10 +118,19 @@ turbos_min.img: $(OBJS_MIN)
 	echo "obase=16; $(PADSIZE)-`wc -c <$@.rom`+20" | bc | xxd -r -p >> vectors.tmp
 	cat $@.tmp lastpage.tmp vectors.tmp > $@
 	rm *.tmp
+
+turbos_smoke.img: $(OBJS_SMOKE)
+	cat $? > $@.rom
+	cat $@.rom > $@.tmp
+	os9 padrom -b -c=0 $(PADSIZE) $@.tmp
+	dd if=/dev/zero of=lastpage.tmp bs=1 count=240
+	printf "\x00\x00\x01\x00\x01\x03\x01\x0F\x01\x0C\x01\x06\x01\x09" > vectors.tmp
+	echo "obase=16; $(PADSIZE)-`wc -c <$@.rom`+20" | bc | xxd -r -p >> vectors.tmp
+	cat $@.tmp lastpage.tmp vectors.tmp > $@
+	rm *.tmp
 	
 clean:
-	-$(RM) $(OBJS_FULL) $(OBJS_UIO) $(OBJS_MIN) *.rom *.img *.tmp *.list *.map lastpage
+	-$(RM) $(OBJS_FULL) $(OBJS_UIO) $(OBJS_MIN) $(OBJS_SMOKE) *.rom *.img *.tmp *.list *.map lastpage
 
 gh:
 	open "http://www.github.com/boisy/turbos"
-
