@@ -12,7 +12,6 @@ AFLAGS += -DPORTNAME="$(PORTNAME)" -D$(PORTNAME)
 
 MODULES	= kernel init tkcc
 OBJS_VDG	= $(MODULES) go_vdg
-OBJS_BASELINE = go_baseline
 
 all:	dsk
 
@@ -30,18 +29,9 @@ kernel: $(KERNEL_SOURCES) defs.d
 lint: *.asm $(KERNEL_SOURCES) $(MODULE_SOURCES)
 	$(foreach file,$^,mamou -ls -p $(file) > /tmp/lint.out; mv /tmp/lint.out $(file) ;)
 
-dsk: baseline.dsk vdg.dsk
+dsk: vdg.dsk
 
-baseline.dsk: $(MODULES) $(OBJS_BASELINE)
-	cat $^ > kernel.rom
-	os9 dump -a kernel.rom > kernel.dump
-	$(ASBIN) $(AFLAGS) cocoloader.asm $(ASOUT)cocoloader
-	decb dskini $@
-	echo "10 LOADM\"KERNEL.BIN\":EXEC" > /tmp/loader.bas
-	decb copy -b -0 -t /tmp/loader.bas $@,\*.BAS
-	decb copy -b -2 cocoloader $@,KERNEL.BIN
-
-vdg.dsk: $(MODULES) $(OBJS_VDG)
+vdg.dsk: $(OBJS_VDG)
 	cat $^ > kernel.rom
 	os9 dump -a kernel.rom > kernel.dump
 	$(ASBIN) $(AFLAGS) cocoloader.asm $(ASOUT)cocoloader
@@ -51,7 +41,7 @@ vdg.dsk: $(MODULES) $(OBJS_VDG)
 	decb copy -b -2 cocoloader $@,KERNEL.BIN
 
 clean:
-	-$(RM) $(OBJS_BASELINE) $(OBJS_VDG) kernel.rom kernel.dump cocoloader *.dsk *.list *.map
+	-$(RM) $(OBJS_VDG) kernel.rom kernel.dump cocoloader *.dsk *.list *.map
 
 gh:
 	open "http://www.github.com/boisy/turbos"
@@ -59,11 +49,8 @@ gh:
 xroar_mac: dsk
 	/Applications/Xroar.app/Contents/MacOS/xroar --load-fd0 vdg.dsk
 
-emu_baseline: baseline.dsk
-	mame -d -inipath ~/mame -cfg_directory ~/mame/cfg coco2b -flop1 $^ -nothrottle
-
-emu_vdg: vdg.dsk
-	mame -d -inipath ~/mame -cfg_directory ~/mame/cfg coco2b -flop1 $^ -nothrottle
+run: vdg.dsk
+	mame -rompath $(MAME_ROM_PATH) coco2b -flop1 $^ -nothrottle
 
 showsizes: all
-	ls -l $(OBJS_VDG) $(OBJS_BASELINE)
+	ls -l $(OBJS_VDG)

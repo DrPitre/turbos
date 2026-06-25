@@ -24,3 +24,16 @@ ports/turbo9sim/*.img
 ports/turbo9sim/*.img.rom
 ports/turbo9sim/*.list
 ports/turbo9sim/*.map
+
+ports/coco/cfg/
+ports/coco/cocoloader
+ports/coco/go_baseline
+ports/coco/go_vdg
+ports/coco/init
+ports/coco/kernel
+ports/coco/kernel.dump
+ports/coco/kernel.rom
+ports/coco/tkcc
+ports/coco/*.dsk
+ports/coco/*.list
+ports/coco/*.map

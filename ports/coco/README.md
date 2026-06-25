@@ -2,11 +2,12 @@
 
 ## Building
 
-To build a bootable disk image named `turbos.dsk`, type: `make clean dsk`.
+To build a bootable VDG test disk image named `vdg.dsk`, type: `make clean dsk`.
 
 ## Running
 
-Mount the disk image on a real CoCo or an emulator, then in Disk BASIC, type: `RUN "*"`.
+Mount `vdg.dsk` on a real CoCo or an emulator, then in Disk BASIC, type: `RUN "*"`.
+To start it in MAME from this directory, type: `make run`.
 
 The 32x16 VDG screen remains intact, with the system stack appearing in the middle of the screen.
 
