@@ -177,7 +177,7 @@ updatetick@    lda       <D.TSec             get ticks per second value
 handlevirq@              
                ifne      _FF_VIRQ_POLL
                ldy       <D.VIRQTable        get pointer to VIRQ table
-               beq       GoAltIRQ            table isn't initialized, so service kernel
+               beq       TickCount           table isn't initialized, so service kernel
                clra                          clear flag byte to indicate we're not at terminal count
                pshs      a                   and save it on the stack for later
                bra       getnext@            go to the processing portion of the loop
@@ -196,7 +196,7 @@ savecount@     std       Vi.Cnt,x            save tick count back
 getnext@       ldx       ,y++                get address of next entry in VIRQ polling table
                bne       nextentry@          if not zero, branch
                lda       ,s+                 else timer reached zero... get flag off stack
-               beq       GoAltIRQ            branch if zero
+               beq       TickCount           branch if zero
                ldx       <D.Proc             else get pointer to current process descriptor
                beq       dopoll@             branch if none
                tst       P$State,x           test process state
@@ -205,6 +205,7 @@ dopoll@        jsr       [>D.Poll]           poll ISRs
                bcc       dopoll@             keep polling until carry set
                endc      
 * Increment the 32-bit timer
+TickCount
                inc       <D.Ticks+3
                bne       next@
                inc       <D.Ticks+2
@@ -228,7 +229,7 @@ up@            jsr       [>D.Poll]           call interrupt polling routine
                std       <D.SWI2             save off in system globals
                ldd       <D.UsrIRQ           get user IRQ routine vector
                std       <D.SvcIRQ           save off in system globals
-               bra       GoAltIRQ            go do kernel multitasking stuff
+               bra       TickCount           go update ticks and do kernel multitasking
 
 DelVIRQ        pshs      y,x                 save off Y,X
 dl@            ldx       ,y++                get next entry
