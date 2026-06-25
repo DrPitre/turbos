@@ -1,1 +1,24 @@
 .DS_Store
+
+# Build outputs
+ports/turbo9sim/go
+ports/turbo9sim/go_fork
+ports/turbo9sim/go_smoke
+ports/turbo9sim/init
+ports/turbo9sim/ioman_full
+ports/turbo9sim/ioman_uio
+ports/turbo9sim/kernel_full
+ports/turbo9sim/kernel_min
+ports/turbo9sim/kernel_uio
+ports/turbo9sim/mdir
+ports/turbo9sim/mfree
+ports/turbo9sim/procs
+ports/turbo9sim/scf
+ports/turbo9sim/scvt
+ports/turbo9sim/shell
+ports/turbo9sim/term
+ports/turbo9sim/tkt9sim_full
+ports/turbo9sim/tkt9sim_min
+ports/turbo9sim/tkt9sim_uio
+ports/turbo9sim/*.img
+ports/turbo9sim/*.img.rom
