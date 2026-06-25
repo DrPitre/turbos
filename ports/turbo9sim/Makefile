@@ -22,9 +22,13 @@ PORTNAME	= turbo9sim
 # Booting from an external storage device can bring in additional functionality.
 #_FF_BOOTING            Set to 1 for bootfile loading
 
-KERNEL_FULL = -D_FF_IRQ_POLL=1 -D_FF_VIRQ_POLL=1 -D_FF_WALLTIME=1 -D_FF_MODCHECK=1 -D_FF_UNIFIED_IO=1 -D_FF_BOOTING=1
-KERNEL_MIN  = -D_FF_IRQ_POLL=0 -D_FF_VIRQ_POLL=0 -D_FF_WALLTIME=0 -D_FF_MODCHECK=0 -D_FF_UNIFIED_IO=0 -D_FF_BOOTING=0
-KERNEL_UIO  = -D_FF_IRQ_POLL=0 -D_FF_VIRQ_POLL=0 -D_FF_WALLTIME=0 -D_FF_MODCHECK=0 -D_FF_UNIFIED_IO=1 -D_FF_BOOTING=0
+PROFILE_LITE = -D_FF_IRQ_POLL=0 -D_FF_VIRQ_POLL=0 -D_FF_WALLTIME=0 -D_FF_MODCHECK=0 -D_FF_UNIFIED_IO=0 -D_FF_BOOTING=0
+PROFILE_CORE = -D_FF_IRQ_POLL=0 -D_FF_VIRQ_POLL=0 -D_FF_WALLTIME=0 -D_FF_MODCHECK=0 -D_FF_UNIFIED_IO=1 -D_FF_BOOTING=0
+PROFILE_DEV  = -D_FF_IRQ_POLL=1 -D_FF_VIRQ_POLL=1 -D_FF_WALLTIME=1 -D_FF_MODCHECK=1 -D_FF_UNIFIED_IO=1 -D_FF_BOOTING=1
+
+KERNEL_FULL = $(PROFILE_DEV)
+KERNEL_MIN  = $(PROFILE_LITE)
+KERNEL_UIO  = $(PROFILE_CORE)
 
 ifndef TURBOSDIR
 	TURBOSDIR=$(HOME)/Projects/turbos
@@ -39,13 +43,16 @@ AFLAGS += -DPORTNAME="$(PORTNAME)" -D$(PORTNAME) -DLEVEL=1
 COMMANDS = go
 KERNELS  = kernel_full kernel_uio kernel_min
 
-OBJS_FULL = kernel_full init tkt9sim_full ioman_full scf scvt term go_fork shell mfree mdir procs
-OBJS_UIO = kernel_uio init tkt9sim_uio ioman_uio scf scvt term $(COMMANDS)
-OBJS_MIN = kernel_min init tkt9sim_min $(COMMANDS)
+OBJS_LITE = kernel_min init tkt9sim_min $(COMMANDS)
+OBJS_CORE = kernel_uio init tkt9sim_uio ioman_uio scf scvt term $(COMMANDS)
+OBJS_DEV = kernel_full init tkt9sim_full ioman_full scf scvt term go_fork shell mfree mdir procs
+OBJS_FULL = $(OBJS_DEV)
+OBJS_UIO = $(OBJS_CORE)
+OBJS_MIN = $(OBJS_LITE)
 OBJS_SMOKE = kernel_min init tkt9sim_min go_smoke
 
-all:	turbos_full.img turbos_uio.img turbos_min.img
-	ls -l turbos_full.img.rom turbos_uio.img.rom turbos_min.img.rom
+all:	turbos_lite.img turbos_core.img turbos_dev.img
+	ls -l turbos_lite.img.rom turbos_core.img.rom turbos_dev.img.rom
 
 KERNEL_SOURCES = kernel.asm fallbit.asm faproc.asm fchain.asm fcmpnam.asm fcrc.asm \
 	ffork.asm flink.asm fnproc.asm fprsnam.asm fsrqmem.asm fssvc.asm \
@@ -89,7 +96,7 @@ lint: *.asm $(KERNEL_SOURCES) $(MODULE_SOURCES)
 #PADSIZE=65280
 PADSIZE=65280
 
-turbos_full.img: $(OBJS_FULL)
+turbos_dev.img: $(OBJS_DEV)
 	cat $^ > $@.rom
 	cat $@.rom > $@.tmp
 	os9 padrom -b -c=0 $(PADSIZE) $@.tmp
@@ -99,7 +106,7 @@ turbos_full.img: $(OBJS_FULL)
 	cat $@.tmp lastpage.tmp vectors.tmp > $@
 	rm *.tmp
 
-turbos_uio.img: $(OBJS_UIO)
+turbos_core.img: $(OBJS_CORE)
 	cat $^ > $@.rom
 	cat $@.rom > $@.tmp
 	os9 padrom -b -c=0 $(PADSIZE) $@.tmp
@@ -109,7 +116,7 @@ turbos_uio.img: $(OBJS_UIO)
 	cat $@.tmp lastpage.tmp vectors.tmp > $@
 	rm *.tmp
 
-turbos_min.img: $(OBJS_MIN)
+turbos_lite.img: $(OBJS_LITE)
 	cat $^ > $@.rom
 	cat $@.rom > $@.tmp
 	os9 padrom -b -c=0 $(PADSIZE) $@.tmp

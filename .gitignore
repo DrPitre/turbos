@@ -22,3 +22,5 @@ ports/turbo9sim/tkt9sim_min
 ports/turbo9sim/tkt9sim_uio
 ports/turbo9sim/*.img
 ports/turbo9sim/*.img.rom
+ports/turbo9sim/*.list
+ports/turbo9sim/*.map
