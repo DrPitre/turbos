@@ -627,5 +627,6 @@ C$Space set $20
 C$Period set '.
 C$Comma set ',
 C$CR set $0D
+C$LF set $0A
 
  endc
