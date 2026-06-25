@@ -12,7 +12,7 @@ AFLAGS += -DPORTNAME="$(PORTNAME)" -D$(PORTNAME)
 MAME_AUTOBOOT_DELAY ?= 2
 
 MODULES	= kernel init tkcc
-OBJS_VDG	= $(MODULES) go_vdg
+OBJS_VDG	= $(MODULES) go
 
 all:	dsk
 
