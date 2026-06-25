@@ -91,8 +91,10 @@ FSTime         ldx       R$X,u               get caller's pointer to time packet
 * The kernel calls this routine during system initialization.
 init                     
                ifne      _FF_WALLTIME
-               ldd       #59*256+$01         last second and last tick
-               std       <D.Sec              will prompt RTC read at next time slice
+               lda       #59                 last second
+               sta       <D.Sec              will prompt RTC read at next time slice
+               lda       #$01                last tick
+               sta       <D.Tick             force time update on first clock tick
                endc      
                ldb       #TkPerSec           get ticks per second
                stb       <D.TSec             set global
