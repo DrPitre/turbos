@@ -90,7 +90,7 @@ lint: *.asm $(KERNEL_SOURCES) $(MODULE_SOURCES)
 PADSIZE=65280
 
 turbos_full.img: $(OBJS_FULL)
-	cat $? > $@.rom
+	cat $^ > $@.rom
 	cat $@.rom > $@.tmp
 	os9 padrom -b -c=0 $(PADSIZE) $@.tmp
 	dd if=/dev/zero of=lastpage.tmp bs=1 count=240
@@ -100,7 +100,7 @@ turbos_full.img: $(OBJS_FULL)
 	rm *.tmp
 
 turbos_uio.img: $(OBJS_UIO)
-	cat $? > $@.rom
+	cat $^ > $@.rom
 	cat $@.rom > $@.tmp
 	os9 padrom -b -c=0 $(PADSIZE) $@.tmp
 	dd if=/dev/zero of=lastpage.tmp bs=1 count=240
@@ -110,7 +110,7 @@ turbos_uio.img: $(OBJS_UIO)
 	rm *.tmp
 
 turbos_min.img: $(OBJS_MIN)
-	cat $? > $@.rom
+	cat $^ > $@.rom
 	cat $@.rom > $@.tmp
 	os9 padrom -b -c=0 $(PADSIZE) $@.tmp
 	dd if=/dev/zero of=lastpage.tmp bs=1 count=240
@@ -120,7 +120,7 @@ turbos_min.img: $(OBJS_MIN)
 	rm *.tmp
 
 turbos_smoke.img: $(OBJS_SMOKE)
-	cat $? > $@.rom
+	cat $^ > $@.rom
 	cat $@.rom > $@.tmp
 	os9 padrom -b -c=0 $(PADSIZE) $@.tmp
 	dd if=/dev/zero of=lastpage.tmp bs=1 count=240
