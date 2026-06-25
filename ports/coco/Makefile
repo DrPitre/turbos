@@ -9,6 +9,7 @@ include $(TURBOSDIR)/ports/rules.mak
 VPATH=$(TURBOSDIR)/source/modules $(TURBOSDIR)/source/commands $(TURBOSDIR)/source/kernel $(TURBOSDIR)/tests
 
 AFLAGS += -DPORTNAME="$(PORTNAME)" -D$(PORTNAME)
+MAME_AUTOBOOT_DELAY ?= 2
 
 MODULES	= kernel init tkcc
 OBJS_VDG	= $(MODULES) go_vdg
@@ -50,7 +51,7 @@ xroar_mac: dsk
 	/Applications/Xroar.app/Contents/MacOS/xroar --load-fd0 vdg.dsk
 
 run: vdg.dsk
-	mame -rompath $(MAME_ROM_PATH) coco2b -flop1 $^ -window -nothrottle -autoboot_command 'RUN"*"\n'
+	mame -rompath $(MAME_ROM_PATH) coco2b -flop1 $^ -window -skip_gameinfo -nothrottle -autoboot_delay $(MAME_AUTOBOOT_DELAY) -autoboot_command 'RUN"*"\n'
 
 showsizes: all
 	ls -l $(OBJS_VDG)
