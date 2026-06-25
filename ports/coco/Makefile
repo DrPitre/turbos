@@ -50,7 +50,7 @@ xroar_mac: dsk
 	/Applications/Xroar.app/Contents/MacOS/xroar --load-fd0 vdg.dsk
 
 run: vdg.dsk
-	mame -rompath $(MAME_ROM_PATH) coco2b -flop1 $^ -nothrottle
+	mame -rompath $(MAME_ROM_PATH) coco2b -flop1 $^ -window -nothrottle -autoboot_command 'RUN"*"\n'
 
 showsizes: all
 	ls -l $(OBJS_VDG)
