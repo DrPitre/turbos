@@ -101,7 +101,7 @@ turbos_dev.img: $(OBJS_DEV)
 	cat $@.rom > $@.tmp
 	os9 padrom -b -c=0 $(PADSIZE) $@.tmp
 	dd if=/dev/zero of=lastpage.tmp bs=1 count=240
-	printf "\x00\x00\x01\x00\x01\x03\x01\x0F\x01\x0C\x01\x06\x01\x09" > vectors.tmp
+	printf "\000\000\001\000\001\003\001\017\001\014\001\006\001\011" > vectors.tmp
 	echo "obase=16; $(PADSIZE)-`wc -c <$@.rom`+20" | bc | xxd -r -p >> vectors.tmp
 	cat $@.tmp lastpage.tmp vectors.tmp > $@
 	rm *.tmp
@@ -111,7 +111,7 @@ turbos_core.img: $(OBJS_CORE)
 	cat $@.rom > $@.tmp
 	os9 padrom -b -c=0 $(PADSIZE) $@.tmp
 	dd if=/dev/zero of=lastpage.tmp bs=1 count=240
-	printf "\x00\x00\x01\x00\x01\x03\x01\x0F\x01\x0C\x01\x06\x01\x09" > vectors.tmp
+	printf "\000\000\001\000\001\003\001\017\001\014\001\006\001\011" > vectors.tmp
 	echo "obase=16; $(PADSIZE)-`wc -c <$@.rom`+20" | bc | xxd -r -p >> vectors.tmp
 	cat $@.tmp lastpage.tmp vectors.tmp > $@
 	rm *.tmp
@@ -121,7 +121,7 @@ turbos_lite.img: $(OBJS_LITE)
 	cat $@.rom > $@.tmp
 	os9 padrom -b -c=0 $(PADSIZE) $@.tmp
 	dd if=/dev/zero of=lastpage.tmp bs=1 count=240
-	printf "\x00\x00\x01\x00\x01\x03\x01\x0F\x01\x0C\x01\x06\x01\x09" > vectors.tmp
+	printf "\000\000\001\000\001\003\001\017\001\014\001\006\001\011" > vectors.tmp
 	echo "obase=16; $(PADSIZE)-`wc -c <$@.rom`+20" | bc | xxd -r -p >> vectors.tmp
 	cat $@.tmp lastpage.tmp vectors.tmp > $@
 	rm *.tmp
@@ -131,7 +131,7 @@ turbos_smoke.img: $(OBJS_SMOKE)
 	cat $@.rom > $@.tmp
 	os9 padrom -b -c=0 $(PADSIZE) $@.tmp
 	dd if=/dev/zero of=lastpage.tmp bs=1 count=240
-	printf "\x00\x00\x01\x00\x01\x03\x01\x0F\x01\x0C\x01\x06\x01\x09" > vectors.tmp
+	printf "\000\000\001\000\001\003\001\017\001\014\001\006\001\011" > vectors.tmp
 	echo "obase=16; $(PADSIZE)-`wc -c <$@.rom`+20" | bc | xxd -r -p >> vectors.tmp
 	cat $@.tmp lastpage.tmp vectors.tmp > $@
 	rm *.tmp
