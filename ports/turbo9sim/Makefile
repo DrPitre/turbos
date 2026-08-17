@@ -45,7 +45,7 @@ KERNELS  = kernel_full kernel_uio kernel_min
 
 OBJS_LITE = kernel_min init tkt9sim_min $(COMMANDS)
 OBJS_CORE = kernel_uio init tkt9sim_uio ioman_uio scf scvt term $(COMMANDS)
-OBJS_DEV = kernel_full init tkt9sim_full ioman_full scf scvt term go_fork shell mfree mdir procs
+OBJS_DEV = kernel_full init tkt9sim_full ioman_full scf scvt term go_fork shell mfree mdir procs sleep
 OBJS_FULL = $(OBJS_DEV)
 OBJS_UIO = $(OBJS_CORE)
 OBJS_MIN = $(OBJS_LITE)
