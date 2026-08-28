@@ -156,6 +156,20 @@ loop@ lda ,x+ get source byte
  sta ,y+ save in destination
  decb decrement counter
  bne loop@ branch if not done
+
+* If $FFF0 is RAM (CoCo): point the CPU vector table at the $0100 stubs.
+ iflt MappedIOEnd-$FFF0
+ leax >HWVects,pcr point X to hardware vector table
+ ldu #$FFF2 point U to SWI3 vector
+ ldy #6 six vectors through NMI
+hw@ ldd ,x++ get stub address
+ std ,u++ store in CPU vector table
+ leay -1,y decrement counter
+ bne hw@ branch if not done
+ leax >ColdStart,pcr point X at kernel entry
+ stx ,u and set RESET vector
+ endc
+
  puls x recover the saved RAM upper limit
  ldy #MappedIOStart stop short of IO address area
  lbsr ValMods validate modules there
@@ -601,6 +615,15 @@ NMIJmp jmp [>D.NMI]
 IRQJmp jmp [>D.IRQ]
 FIRQJmp jmp [>D.FIRQ]
 VectCSz equ *-VectCode
+
+ iflt MappedIOEnd-$FFF0
+HWVects fdb D.XSWI3 SWI3
+ fdb D.XSWI2 SWI2
+ fdb D.XFIRQ FIRQ
+ fdb D.XIRQ IRQ
+ fdb D.XSWI SWI
+ fdb D.XNMI NMI
+ endc
 
 * The system call table.
 SysTbl fcb F$Link
