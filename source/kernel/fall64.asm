@@ -39,22 +39,31 @@
 ;;; The following diagram shows how 64 byte blocks might be allocated in two 256 byte pages located at $3000 and
 ;;; $3600, respectively:
 ;;;
-;;; Address   Contents                         First byte
-;;; $3000     Page table (64 bytes)             $30 (next byte: $36)
-;;; $3040     Allocated block 1 (64 bytes)      $01
-;;; $3080     Allocated block 2 (64 bytes)      $02
-;;; $30C0     Allocated block 3 (64 bytes)      $03
+;;; -------------------------
+;;; Base Page --> | $30/$36 | $30 |
+;;; $3000 | Page Table | 64 bytes |
+;;; | 64 bytes | |
+;;; |------------ ------------|
+;;; | $30 | $30 |
+;;; | 64 bytes | 64 bytes |
+;;; | | |
+;;; -------------------------
 ;;;
-;;; $3600     Allocated block 4 (64 bytes)      $04
-;;; $3640     Allocated block 5 (64 bytes)      $05
-;;; $3680     Allocated block 6 (64 bytes)      $06
-;;; $36C0     Free block 7 (64 bytes)           $00
+;;; -------------------------
+;;; Next Page --> | $36 | $36 |
+;;; $3600 | 64 bytes | 64 bytes |
+;;; | | |
+;;; |-------------------------|
+;;; | $36 | |
+;;; | 64 bytes | 64 bytes |
+;;; | | |
+;;; -------------------------
 ;;;
 ;;; In this example, the first 256 byte page at $3000 is the base page. All four of its 64 byte blocks are allocated
 ;;; with the first block acting as the page table. Its first two bytes are $30 and $36 which are the MSBs of the addresses
 ;;; of the allocated pages.
 ;;; The next 256 byte page at $3600 has three of its four 64 byte blocks allocated and one remaining free. The first byte
-;;; of each of its allocated 64 byte blocks contains the block number, not the page address MSB.
+;;; of each of the allocated 64 byte blocks contains the MSB of the 256 byte address of its block.
 
 FAll64 ldx R$X,u get base address of page table
  bne notempty@ branch if not empty
@@ -83,7 +92,8 @@ Alloc256Bytes pshs u save off caller's registers
  puls u and recover U saved earlier
  bcs ex@ branch if error
 * clear out the newly allocated area
- clra A = 0 for clearing; B is already 0 from F$SRqMem (D = $0100)
+ clra A = 0 (used to for clearing byte)
+ clrb B = 0 (used for 256 loop counter)
 loop@ sta d,x clear byte at ,X
  incb count loop up
  bne loop@ branch not zero (more to clear)
@@ -110,7 +120,7 @@ checkpage@ tst d,y is this 64 byte page available?
 pagefree@ orcc #Carry set carry flag to indicate this page is free and can be allocated
 pagefree2@ leay d,y point Y to the free 64 byte block
  puls a recover A from stack
- bcc mark2@ branch if a free block was found in an existing page
+ bcc mark2@ branch if no page allocated (carry set earlier)
  inca increment A
  cmpa #64 at 64?
  bcs searchnext@ branch if less than 64
@@ -135,12 +145,12 @@ mark@ pshs x,a save X (address of page table) and A (current offset in page tabl
 mark2@ lslb multiply D times 2
  rola then...
  lslb multiply D times 2 again (D = D*4)
- rola A now holds the block number (page table index * 4 + block offset / 64)
+ rola A now holds MSB of address of the 256 byte page that this 64 byte block is in
  ldb #64-1 get block size minus 1 (clear remaining 63 bytes)
 loop@ clr b,y clear the byte in the block
  decb decrement b
  bne loop@ continue if more to clear
- sta ,y save the block number in the first byte of the 64 byte block
+ sta ,y save MSB of block address in first byte of 64 byte block
 ex1@ puls pc,u,x pull registers and return
 ex2@ leas 3,s recover stack
  puls pc,u,x pull registers and return

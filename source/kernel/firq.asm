@@ -61,7 +61,7 @@ FIRQ ldx R$X,u get the address of the interrupt packet
  orcc #FIRQMask+IRQMask else mask interrupts
 loop@ ldb 2,s get the priority byte off the stack
  cmpb -1,x compare with the previous entry's priority
- bcs L052F branch if it's lower
+ bcs L052F branch if it's lower or same
  ldb #POLSIZ else copy the previous entry
 copyloop@ lda ,-x get a byte from the previous entry
  sta POLSIZ,x store it in this one
@@ -72,7 +72,8 @@ copyloop@ lda ,-x get a byte from the previous entry
 L052F ldd R$D,u get the device status register
  std Q$POLL,x save it to the polling table
  ldd ,s++ get the flip/mask bytes
- std Q$FLIP,x save the flip and mask bytes to the polling table
+ sta Q$FLIP,x save the flip byte to the polling table
+ stb Q$MASK,x save the mask byte to the polling table
  ldb ,s+ get the priority
  stb Q$PRTY,x save the priority to the polling table
  ldd R$Y,u get the interrupt service routine address

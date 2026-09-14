@@ -55,12 +55,13 @@ loopstart@ subb #$08 subtract 8 from B
  bcc loop2@ branch if B is >= 0
  dec _mask@,s else decrement mask byte
  bpl loop2@ and branch if hi bit not set
-loop3@ lsla shift A left one bit, filling LSB with 0
+loop3@ lsla divide A by 2
  incb increment B
  bne loop3@ continue if B is not 0
  ora ,x OR A with value at X
 ex@ sta ,x and store it at X
- clr ,s+ clear carry and discard the saved mask
+ clra clear carry
+ leas _mask@+1,s fix stack
  puls pc,y,x,b,a restore registers and return
 
 * Calculate address of first byte we want, and which bit in that byte, from
@@ -74,11 +75,11 @@ ex@ sta ,x and store it at X
 *
 * Example 1:
 * We want bit 18 starting at address 1024. Pass 18 to D and 1024 to X.
-* We get back $20 in A (bit 5 set) and 1026 in X (the address of the byte).
+* We get back 128 in A (bit 7 set) and 1026 in D (the address of the bit).
 *
 * Example 2:
 * We want bit 5 starting at address 3000. Pass 5 to D and 3000 to X.
-* We get back $04 in A (bit 2 set) and 3000 in X (the address of the byte).
+* We get back 8 in A (bit 3 set) and 3000 in D (the address of the bit).
 
 CalcBit pshs b preserve B
  lsra divide D
@@ -117,7 +118,7 @@ ex@ rts return to the caller
 
 FDelBit ldd R$D,u get bit number to start with
  leau R$X,u point U to the address of the caller's register pointer
- pulu y,x load caller's R$X and R$Y into X and Y, advancing U
+ pulu y,x load X/Y/U with this slick trick
 DelBit pshs y,x,b,a preserve registers
  bsr CalcBit calculate byte and position, and get first bit mask
  coma complement the mask
@@ -128,7 +129,7 @@ _mask@ set 0
 loop@ anda _mask@,s AND with mask on stack
  leay -1,y decrement the bits to clear counter
  beq ex@ if zero, we're done, so return to caller
- asr _mask@,s else shift right the mask byte on the stack (bit 7 remains constant, bit 0 goes into carry)
+ asr _mask@,s else shift right the mask byte on the stack (bit 7 remains constant, bit 0 goe sinto the carry)
  bcs loop@ and continue if carry set (bit 0 was 1 in the mask)
  sta ,x+ else store the updated byte and increment to the next
 delstart@ tfr y,d transfer bit clear count from Y into D
@@ -156,7 +157,7 @@ ex@ sta ,x and store it
 ;;; U = The address of the end of the allocation bitmap
 ;;;
 ;;; Exit: D = The starting bit number.
-;;; Y = The number of contiguous clear bits found.
+;;; Y = The number of bits cleared.
 ;;;
 ;;; Error: B = A non-zero error code.
 ;;; CC = Carry flag set to indicate error.
@@ -173,7 +174,7 @@ FSchBit pshs u save off caller's registers
  bsr SchBit perform the search
  puls u recover the caller's registers
  std R$D,u save the starting bit number in the caller's D
- sty R$Y,u and the number of contiguous clear bits found in caller's Y
+ sty R$Y,u and the number of bits cleared at that point in caller's Y
  rts return
 SchBit pshs u,y,x,b,a preserve registers
  pshs y,b,a preserve more
@@ -207,18 +208,18 @@ loop2@ lsr _stk3A@,s shift the byte on the stack right (bit 0 goes into carry)
  ror _stk3A@,s else rotate right byte on stack
  leax 1,x advance X by 1
 looptop@ cmpx _stk1U@,s compare X to the end of the bitmap on the stack
- bcc loopout@ branch if X is at or beyond the end of the bitmap
+ bcc loopout@ branch if equal (we're finished)
 looptop2@ lda ,x get the byte in the bitmap at X into A
  anda _stk3A@,s AND with bit mask on stack
  bne loop@ branch if not zero
- leay $01,y else advance the bit number in Y by 1
+ leay $01,y else advance Y by 1 byte
  tfr y,d transfer it to D
- subd _stk1A@,s subtract the starting bit number on the stack from D
+ subd _stk1A@,s subract bit number to start with the on the stack from D
  cmpd _stk2Y@,s compare to our counter
- bcc saveandex@ branch if the clear run is at least the requested length
- cmpd _stk1Y@,s compare D against the largest clear run saved on the stack
- bls loop2@ branch if D is lower than or equal to the saved largest count
- std _stk1Y@,s else save D as the largest clear run on the stack
+ bcc saveandex@ branch if equal
+ cmpd _stk1Y@,s compare against the number of bits cleared on the stack with D
+ bls loop2@ branch if the value on the stack is lower or same as D
+ std _stk1Y@,s else save D into the number of bits cleared position on the stack
  ldd _stk1A@,s get the bit number to start with on the stack into D
  std _stk2A@,s save off into the next position on the stack
  bra loop2@ and continue working
@@ -226,6 +227,6 @@ loopout@ ldd _stk2A@,s get the next position on the stack
  std _stk1A@,s store it
  coma complement A
  bra ex@ and prepare to return to the caller
-saveandex@ std _stk1Y@,s save the number of contiguous clear bits found
+saveandex@ std _stk1Y@,s get the number of bits cleared
 ex@ leas _stk1A@,s clean up the stack
  puls pc,u,y,x,b,a restore registers and return to the caller
