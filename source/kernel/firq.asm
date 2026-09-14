@@ -72,8 +72,7 @@ copyloop@ lda ,-x get a byte from the previous entry
 L052F ldd R$D,u get the device status register
  std Q$POLL,x save it to the polling table
  ldd ,s++ get the flip/mask bytes
- sta Q$FLIP,x save the flip byte to the polling table
- stb Q$MASK,x save the mask byte to the polling table
+ std Q$FLIP,x save the flip and mask bytes to the polling table
  ldb ,s+ get the priority
  stb Q$PRTY,x save the priority to the polling table
  ldd R$Y,u get the interrupt service routine address
