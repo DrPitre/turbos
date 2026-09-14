@@ -61,7 +61,7 @@ FIRQ ldx R$X,u get the address of the interrupt packet
  orcc #FIRQMask+IRQMask else mask interrupts
 loop@ ldb 2,s get the priority byte off the stack
  cmpb -1,x compare with the previous entry's priority
- bcs L052F branch if it's lower or same
+ bcs L052F branch if it's lower
  ldb #POLSIZ else copy the previous entry
 copyloop@ lda ,-x get a byte from the previous entry
  sta POLSIZ,x store it in this one
