@@ -26,9 +26,9 @@ PROFILE_LITE = -D_FF_IRQ_POLL=0 -D_FF_VIRQ_POLL=0 -D_FF_WALLTIME=0 -D_FF_MODCHEC
 PROFILE_CORE = -D_FF_IRQ_POLL=0 -D_FF_VIRQ_POLL=0 -D_FF_WALLTIME=0 -D_FF_MODCHECK=0 -D_FF_UNIFIED_IO=1 -D_FF_BOOTING=0 -D_FF_ID=0 -D_FF_SPRIOR=0 -D_FF_SWI=0
 PROFILE_DEV  = -D_FF_IRQ_POLL=1 -D_FF_VIRQ_POLL=1 -D_FF_WALLTIME=1 -D_FF_MODCHECK=1 -D_FF_UNIFIED_IO=1 -D_FF_BOOTING=1 -D_FF_ID=1 -D_FF_SPRIOR=1 -D_FF_SWI=1
 
-KERNEL_FULL = $(PROFILE_DEV)
-KERNEL_MIN  = $(PROFILE_LITE)
-KERNEL_UIO  = $(PROFILE_CORE)
+KERNEL_FULL = $(PROFILE_DEV) -DLEVEL=1
+KERNEL_MIN  = $(PROFILE_LITE) -DLEVEL=1
+KERNEL_UIO  = $(PROFILE_CORE) -DLEVEL=1
 
 ifndef TURBOSDIR
 	TURBOSDIR=$(HOME)/Projects/turbos
@@ -38,7 +38,7 @@ include $(TURBOSDIR)/ports/rules.mak
 
 VPATH=$(TURBOSDIR)/source/modules $(TURBOSDIR)/source/commands $(TURBOSDIR)/source/kernel $(TURBOSDIR)/tests
 
-AFLAGS += -DPORTNAME="$(PORTNAME)" -D$(PORTNAME) -DLEVEL=1
+AFLAGS += -DPORTNAME="$(PORTNAME)" -D$(PORTNAME)
 
 COMMANDS = go
 KERNELS  = kernel_full kernel_uio kernel_min
@@ -54,29 +54,38 @@ OBJS_SMOKE = kernel_min init tkt9sim_min go_smoke
 all:	turbos_lite.img turbos_core.img turbos_dev.img
 	ls -l turbos_lite.img.rom turbos_core.img.rom turbos_dev.img.rom
 
-KERNEL_SOURCES = kernel.asm fallbit.asm faproc.asm fchain.asm fcmpnam.asm fcrc.asm \
-	ffork.asm flink.asm fnproc.asm fprsnam.asm fsrqmem.asm fssvc.asm \
-	fvmodul.asm \
-	iocall.asm funlink.asm fwait.asm fexit.asm fmem.asm fsend.asm fsleep.asm \
-	ficpt.asm fsprior.asm fid.asm fsswi.asm \
-	ffind64.asm fall64.asm fret64.asm
+KERNEL_SOURCES = $(NITROS9_KERNEL_DIR)/kernel.asm $(NITROS9_KERNEL_DIR)/fallbit.asm $(NITROS9_KERNEL_DIR)/faproc.asm $(NITROS9_KERNEL_DIR)/fchain.asm $(NITROS9_KERNEL_DIR)/fcmpnam.asm $(NITROS9_KERNEL_DIR)/fcrc.asm \
+	$(NITROS9_KERNEL_DIR)/ffork.asm $(NITROS9_KERNEL_DIR)/flink.asm $(NITROS9_KERNEL_DIR)/fnproc.asm $(NITROS9_KERNEL_DIR)/fprsnam.asm $(NITROS9_KERNEL_DIR)/fsrqmem.asm $(NITROS9_KERNEL_DIR)/fssvc.asm \
+	$(NITROS9_KERNEL_DIR)/fvmodul.asm \
+	$(NITROS9_KERNEL_DIR)/iocall.asm $(NITROS9_KERNEL_DIR)/funlink.asm $(NITROS9_KERNEL_DIR)/fwait.asm $(NITROS9_KERNEL_DIR)/fexit.asm $(NITROS9_KERNEL_DIR)/fmem.asm $(NITROS9_KERNEL_DIR)/fsend.asm $(NITROS9_KERNEL_DIR)/fsleep.asm \
+	$(NITROS9_KERNEL_DIR)/ficpt.asm $(NITROS9_KERNEL_DIR)/fsprior.asm $(NITROS9_KERNEL_DIR)/fid.asm $(NITROS9_KERNEL_DIR)/fsswi.asm \
+	$(NITROS9_KERNEL_DIR)/ffind64.asm $(NITROS9_KERNEL_DIR)/fall64.asm $(NITROS9_KERNEL_DIR)/fret64.asm
 
 MODULE_SOURCES	= init.asm tkt9sim.asm
 
 kernel_full: $(KERNEL_SOURCES)
-	$(AS) $(KERNEL_FULL) $? -o$@
+	$(AS) $(KERNEL_FULL) $^ -o$@
 
 kernel_uio: $(KERNEL_SOURCES)
-	$(AS) $(KERNEL_UIO) $? -o$@
+	$(AS) $(KERNEL_UIO) $^ -o$@
 	
 kernel_min: $(KERNEL_SOURCES)
-	$(AS) $(KERNEL_MIN) $? -o$@
+	$(AS) $(KERNEL_MIN) $^ -o$@
 	
-ioman_full: ioman.asm
+ioman_full: $(NITROS9_MODULE_DIR)/ioman.asm
 	$(AS) $(KERNEL_FULL) $? -o$@
 
-ioman_uio: ioman.asm
+ioman_uio: $(NITROS9_MODULE_DIR)/ioman.asm
 	$(AS) $(KERNEL_UIO) $? -o$@
+
+scf: $(NITROS9_MODULE_DIR)/scf.asm
+	$(AS) $(AFLAGS) $< -o$@
+
+mfree: $(NITROS9_COMMAND_DIR)/mfree.asm
+	$(AS) $(AFLAGS) $< -o$@
+
+procs: $(NITROS9_COMMAND_DIR)/procs.asm
+	$(AS) $(AFLAGS) $< -o$@
 	
 tkt9sim_full: tkt9sim.asm
 	$(AS) $(KERNEL_FULL) $? -o$@
