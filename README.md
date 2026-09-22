@@ -2,7 +2,7 @@
 
 ## Overview
 
-**TurbOS** is a Real-Time Operating System (RTOS) for the [Turbo9](http://github.com/turbo9team/turbo9), a modern reimplementation of the classic 6809 CPU. Inspired by the 6809-based [OS-9 operating system](https://en.wikipedia.org/wiki/OS-9) (originally from [Microware Systems Corporation](http://www.microware.com/)) and the [NitrOS-9 Project](http://github.com/n6il/nitros9), TurbOS is designed to leverage the extensibility of the Turbo9, providing a flexible and modern RTOS environment. It is not tied to the legacy designs or assumptions of its predecessors.
+**TurbOS** is a Real-Time Operating System (RTOS) for the [Turbo9](http://github.com/turbo9team/turbo9), a modern reimplementation of the classic 6809 CPU. Inspired by the 6809-based [OS-9 operating system](https://en.wikipedia.org/wiki/OS-9) (originally from [Microware Systems Corporation](http://www.microware.com/)) and the [NitrOS-9 Project](https://github.com/nitros9project/nitros9), TurbOS is designed to leverage the extensibility of the Turbo9, providing a flexible and modern RTOS environment. It is not tied to the legacy designs or assumptions of its predecessors.
 
 ### Key Features
 
@@ -18,8 +18,17 @@
 ### Directory Structure
 
 - `ports/` — Platform-specific files for CoCo, F256, and Turbo9 simulator.
-- `source/` — Core OS code: kernel, modules, commands.
+- `source/` — TurbOS-owned modules, commands, definitions, and tests.
+- `.upstream/generated/source/kernel/` — Materialized kernel source generated
+  from the pinned NitrOS-9 revision (not committed).
 - `tests/` — Test programs and utilities.
+
+### NitrOS-9 upstream
+
+TurbOS generates its complete kernel source from the canonical NitrOS-9 `main`
+branch plus a checked-in TurbOS patch. The pinned upstream revision, source
+mapping, and drift-checking workflow are documented in
+[`docs/nitros9-upstream.md`](docs/nitros9-upstream.md).
 
 ## FAQ
 

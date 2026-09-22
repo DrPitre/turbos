@@ -1,4 +1,5 @@
 .DS_Store
+.upstream/
 
 # Build outputs
 ports/turbo9sim/go
@@ -37,3 +38,10 @@ ports/coco/tkcc
 ports/coco/*.dsk
 ports/coco/*.list
 ports/coco/*.map
+
+ports/wildbits/kernel
+ports/wildbits/kernel.rom
+ports/wildbits/kernel.dump
+ports/wildbits/loader
+ports/wildbits/*.list
+ports/wildbits/*.map

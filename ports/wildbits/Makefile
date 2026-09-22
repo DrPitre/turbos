@@ -16,16 +16,17 @@ OBJS	= $(MODULES) $(COMMANDS)
 
 all:	loader
 
-KERNEL_SOURCES = kernel.asm fallbit.asm faproc.asm fchain.asm fcmpnam.asm fcrc.asm \
-	ffork.asm flink.asm fnproc.asm fprsnam.asm fsrqmem.asm fssvc.asm \
-	fvmodul.asm \
-	iocall.asm funlink.asm fwait.asm fexit.asm fmem.asm fsend.asm fsleep.asm \
-	ficpt.asm fsprior.asm fid.asm fsswi.asm \
-	ffind64.asm fall64.asm fret64.asm
+KERNEL_SOURCES = $(NITROS9_KERNEL_DIR)/kernel.asm $(NITROS9_KERNEL_DIR)/fallbit.asm $(NITROS9_KERNEL_DIR)/faproc.asm $(NITROS9_KERNEL_DIR)/fchain.asm $(NITROS9_KERNEL_DIR)/fcmpnam.asm $(NITROS9_KERNEL_DIR)/fcrc.asm \
+	$(NITROS9_KERNEL_DIR)/ffork.asm $(NITROS9_KERNEL_DIR)/flink.asm $(NITROS9_KERNEL_DIR)/fnproc.asm $(NITROS9_KERNEL_DIR)/fprsnam.asm $(NITROS9_KERNEL_DIR)/fsrqmem.asm $(NITROS9_KERNEL_DIR)/fssvc.asm \
+	$(NITROS9_KERNEL_DIR)/fvmodul.asm \
+	$(NITROS9_KERNEL_DIR)/iocall.asm $(NITROS9_KERNEL_DIR)/funlink.asm $(NITROS9_KERNEL_DIR)/fwait.asm $(NITROS9_KERNEL_DIR)/fexit.asm $(NITROS9_KERNEL_DIR)/fmem.asm $(NITROS9_KERNEL_DIR)/fsend.asm $(NITROS9_KERNEL_DIR)/fsleep.asm \
+	$(NITROS9_KERNEL_DIR)/ficpt.asm $(NITROS9_KERNEL_DIR)/fsprior.asm $(NITROS9_KERNEL_DIR)/fid.asm $(NITROS9_KERNEL_DIR)/fsswi.asm \
+	$(NITROS9_KERNEL_DIR)/ffind64.asm $(NITROS9_KERNEL_DIR)/fall64.asm $(NITROS9_KERNEL_DIR)/fret64.asm
 
 MODULE_SOURCES	= init.asm tkf256.asm
 
 kernel: $(KERNEL_SOURCES)
+	$(AS) $(AFLAGS) $^ -o$@
 
 lint: *.asm $(KERNEL_SOURCES) $(MODULE_SOURCES)
 	$(foreach file,$^,mamou -ls -p $(file) > /tmp/lint.out; mv /tmp/lint.out $(file) ;)

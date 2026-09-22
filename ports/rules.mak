@@ -1,5 +1,9 @@
 # Project-Wide Rules
 
+# Included source-generation rules appear before each port's `all` target.
+# Keep those helper rules from becoming GNU Make's implicit default goal.
+.DEFAULT_GOAL := all
+
 # Environment variables are used to specify any directories other
 # than the defaults below:
 #
@@ -21,16 +25,41 @@ TURBOS_VERSION     = v$(TURBOS_MAJOR).$(TURBOS_MINOR)
 
 DEFSDIR             = $(TURBOSDIR)/source/include
 DSKDIR              = $(TURBOSDIR)/disk_images
+NITROS9_CHECKOUT     = $(TURBOSDIR)/.upstream/nitros9
+NITROS9_GENERATED    = $(TURBOSDIR)/.upstream/generated/source
+NITROS9_KERNEL_DIR   = $(NITROS9_GENERATED)/kernel
+NITROS9_COMMAND_DIR  = $(NITROS9_GENERATED)/commands
+NITROS9_MODULE_DIR   = $(NITROS9_GENERATED)/modules
+NITROS9_IMPORTER     = $(TURBOSDIR)/scripts/nitros9-upstream.py
+
+NITROS9_DERIVED_SOURCES = $(NITROS9_KERNEL_DIR)/fall64.asm \
+	$(NITROS9_KERNEL_DIR)/fchain.asm $(NITROS9_KERNEL_DIR)/fcrc.asm \
+	$(NITROS9_KERNEL_DIR)/ffind64.asm $(NITROS9_KERNEL_DIR)/ficpt.asm \
+	$(NITROS9_KERNEL_DIR)/fid.asm $(NITROS9_KERNEL_DIR)/flink.asm \
+	$(NITROS9_KERNEL_DIR)/fret64.asm $(NITROS9_KERNEL_DIR)/fsend.asm \
+	$(NITROS9_KERNEL_DIR)/fsprior.asm $(NITROS9_KERNEL_DIR)/fsrqmem.asm \
+	$(NITROS9_KERNEL_DIR)/fssvc.asm $(NITROS9_KERNEL_DIR)/fsswi.asm \
+	$(NITROS9_KERNEL_DIR)/funlink.asm $(NITROS9_KERNEL_DIR)/fallbit.asm \
+	$(NITROS9_KERNEL_DIR)/faproc.asm $(NITROS9_KERNEL_DIR)/fexit.asm \
+	$(NITROS9_KERNEL_DIR)/ffork.asm $(NITROS9_KERNEL_DIR)/fmem.asm \
+	$(NITROS9_KERNEL_DIR)/fnproc.asm $(NITROS9_KERNEL_DIR)/fvmodul.asm \
+	$(NITROS9_KERNEL_DIR)/fwait.asm $(NITROS9_KERNEL_DIR)/iocall.asm \
+	$(NITROS9_KERNEL_DIR)/fcmpnam.asm $(NITROS9_KERNEL_DIR)/fprsnam.asm \
+	$(NITROS9_KERNEL_DIR)/fsleep.asm $(NITROS9_KERNEL_DIR)/kernel.asm \
+	$(NITROS9_KERNEL_DIR)/firq.asm \
+	$(NITROS9_COMMAND_DIR)/mfree.asm $(NITROS9_COMMAND_DIR)/procs.asm \
+	$(NITROS9_MODULE_DIR)/ioman.asm $(NITROS9_MODULE_DIR)/scf.asm
 
 # Assembler definitions
-AS                  = lwasm --6309 --format=os9 --pragma=pcaspcr,nosymbolcase,condundefzero,undefextern,dollarnotlocal,noforwardrefmax --includedir=. --includedir=$(DEFSDIR)
-ASROM               = lwasm --6309 --format=raw --pragma=pcaspcr,nosymbolcase,condundefzero,undefextern,dollarnotlocal,noforwardrefmax --includedir=. --includedir=$(DEFSDIR)
-ASBIN               = lwasm --6309 --format=decb --pragma=pcaspcr,nosymbolcase,condundefzero,undefextern,dollarnotlocal,noforwardrefmax --includedir=. --includedir=$(DEFSDIR)
+KERNELINCLUDES      = --includedir=$(NITROS9_KERNEL_DIR) --includedir=$(TURBOSDIR)/source/kernel
+AS                  = lwasm --6309 --format=os9 --pragma=pcaspcr,nosymbolcase,condundefzero,undefextern,dollarnotlocal,noforwardrefmax --includedir=. --includedir=$(DEFSDIR) $(KERNELINCLUDES)
+ASROM               = lwasm --6309 --format=raw --pragma=pcaspcr,nosymbolcase,condundefzero,undefextern,dollarnotlocal,noforwardrefmax --includedir=. --includedir=$(DEFSDIR) $(KERNELINCLUDES)
+ASBIN               = lwasm --6309 --format=decb --pragma=pcaspcr,nosymbolcase,condundefzero,undefextern,dollarnotlocal,noforwardrefmax --includedir=. --includedir=$(DEFSDIR) $(KERNELINCLUDES)
 ASOUT               = -o
 ifdef LISTDIR
 ASOUT               = --list=$(LISTDIR)/$@.lst --symbols -o
 endif
-AFLAGS              = -DTURBOS_MAJOR=$(TURBOS_MAJOR) -DTURBOS_MINOR=$(TURBOS_MINOR) -DTURBOS_MININUM=$(TURBOS_MININUM)
+AFLAGS              = -DTURBOS_MAJOR=$(TURBOS_MAJOR) -DTURBOS_MINOR=$(TURBOS_MINOR) -DTURBOS_MININUM=$(TURBOS_MININUM) -DLEVEL=1
 # RMA/RLINK
 ASM                 = lwasm --6309 --format=obj --pragma=pcaspcr,condundefzero,undefextern,dollarnotlocal,noforwardrefmax,export --includedir=. --includedir=$(DEFSDIR)
 LINKER              = lwlink --format=os9
@@ -64,6 +93,9 @@ LINK                = ln
 SOFTLINK            = $(LINK) -s
 ARCHIVE             = zip -D -9 -j
 MKDSKINDEX          = perl $(TURBOSDIR)/scripts/mkdskindex
+
+$(NITROS9_DERIVED_SOURCES): $(NITROS9_IMPORTER) $(TURBOSDIR)/upstream/nitros9.sources $(TURBOSDIR)/upstream/nitros9.rev $(TURBOSDIR)/upstream/nitros9-turbos.patch
+	python3 $(NITROS9_IMPORTER) materialize --checkout $(NITROS9_CHECKOUT)
 
 # C Rules
 %.o: %.c
