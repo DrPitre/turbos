@@ -192,10 +192,11 @@ SetStt clrb
  
 IRQSvc
  ldx V.PORT,u base hardware address
- lda Reg.Stat,x
- anda #~Ctrl.TermIRQ clear interrupt
+ lda Term.In,x read character before acknowledging interrupt
+ pshs a
+ lda #Term.RxReady acknowledge only the terminal source (write-one-to-clear)
  sta Reg.Stat,x
- lda Term.In,x
+ puls a
  ldb V.IBufH,u get head pointer in B
  leax V.InBuf,u point X to input buffer
  abx X now holds address of head
