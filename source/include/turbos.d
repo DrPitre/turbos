@@ -318,6 +318,12 @@ CM$Feature1 rmb 1 feature byte 1
 CM$Feature2 rmb 1 feature byte 2
  rmb 4 reserved for future use
 
+* NitrOS-9 names used by the shared Level 1 routines.
+C$SPAC set C$SPACE
+ ifne _FF_BOOTING
+BootStr equ CM$BootMod
+ endc
+
 * Feature1 byte definitions
 CRCOn equ %00000001 CRC checking on
 CRCOff equ %00000000 CRC checking off

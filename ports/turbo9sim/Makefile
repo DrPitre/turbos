@@ -22,9 +22,9 @@ PORTNAME	= turbo9sim
 # Booting from an external storage device can bring in additional functionality.
 #_FF_BOOTING            Set to 1 for bootfile loading
 
-PROFILE_LITE = -D_FF_IRQ_POLL=0 -D_FF_VIRQ_POLL=0 -D_FF_WALLTIME=0 -D_FF_MODCHECK=0 -D_FF_UNIFIED_IO=0 -D_FF_BOOTING=0 -D_FF_ID=0 -D_FF_SPRIOR=0 -D_FF_SWI=0
-PROFILE_CORE = -D_FF_IRQ_POLL=0 -D_FF_VIRQ_POLL=0 -D_FF_WALLTIME=0 -D_FF_MODCHECK=0 -D_FF_UNIFIED_IO=1 -D_FF_BOOTING=0 -D_FF_ID=0 -D_FF_SPRIOR=0 -D_FF_SWI=0
-PROFILE_DEV  = -D_FF_IRQ_POLL=1 -D_FF_VIRQ_POLL=1 -D_FF_WALLTIME=1 -D_FF_MODCHECK=1 -D_FF_UNIFIED_IO=1 -D_FF_BOOTING=1 -D_FF_ID=1 -D_FF_SPRIOR=1 -D_FF_SWI=1
+PROFILE_LITE = -D_FF_IRQ_POLL=0 -D_FF_VIRQ_POLL=0 -D_FF_WALLTIME=0 -D_FF_MODCHECK=0 -D_FF_UNIFIED_IO=0 -D_FF_BOOTING=0 -D_FF_ID=0 -D_FF_SPRIOR=0 -D_FF_SSWI=0
+PROFILE_CORE = -D_FF_IRQ_POLL=0 -D_FF_VIRQ_POLL=0 -D_FF_WALLTIME=0 -D_FF_MODCHECK=0 -D_FF_UNIFIED_IO=1 -D_FF_BOOTING=0 -D_FF_ID=0 -D_FF_SPRIOR=0 -D_FF_SSWI=0
+PROFILE_DEV  = -D_FF_IRQ_POLL=1 -D_FF_VIRQ_POLL=1 -D_FF_WALLTIME=1 -D_FF_MODCHECK=1 -D_FF_UNIFIED_IO=1 -D_FF_BOOTING=1 -D_FF_ID=1 -D_FF_SPRIOR=1 -D_FF_SSWI=1
 
 KERNEL_FULL = $(PROFILE_DEV) -DLEVEL=1
 KERNEL_MIN  = $(PROFILE_LITE) -DLEVEL=1
@@ -43,13 +43,13 @@ AFLAGS += -DPORTNAME="$(PORTNAME)" -D$(PORTNAME)
 COMMANDS = go
 KERNELS  = kernel_full kernel_uio kernel_min
 
-OBJS_LITE = kernel_min init tkt9sim_min $(COMMANDS)
-OBJS_CORE = kernel_uio init tkt9sim_uio ioman_uio scf scvt term $(COMMANDS)
-OBJS_DEV = kernel_full init tkt9sim_full ioman_full scf scvt term go_fork shell mfree mdir procs sleep
+OBJS_LITE = kernel_min init_lite tkt9sim_min $(COMMANDS)
+OBJS_CORE = kernel_uio init_core tkt9sim_uio ioman_uio scf scvt term $(COMMANDS)
+OBJS_DEV = kernel_full init_dev tkt9sim_full ioman_full scf scvt term go_fork shell mfree mdir procs sleep
 OBJS_FULL = $(OBJS_DEV)
 OBJS_UIO = $(OBJS_CORE)
 OBJS_MIN = $(OBJS_LITE)
-OBJS_SMOKE = kernel_min init tkt9sim_min go_smoke
+OBJS_SMOKE = kernel_min init_lite tkt9sim_min go_smoke
 
 all:	turbos_lite.img turbos_core.img turbos_dev.img
 	ls -l turbos_lite.img.rom turbos_core.img.rom turbos_dev.img.rom
@@ -63,20 +63,30 @@ KERNEL_SOURCES = $(NITROS9_KERNEL_DIR)/kernel.asm $(NITROS9_KERNEL_DIR)/fallbit.
 
 MODULE_SOURCES	= init.asm tkt9sim.asm
 
+# Init's optional fields must use the same profile as its kernel.
+init_lite: init.asm
+	$(AS) $(AFLAGS) $(PROFILE_LITE) $< -o$@
+
+init_core: init.asm
+	$(AS) $(AFLAGS) $(PROFILE_CORE) $< -o$@
+
+init_dev: init.asm
+	$(AS) $(AFLAGS) $(PROFILE_DEV) $< -o$@
+
 kernel_full: $(KERNEL_SOURCES)
-	$(AS) $(KERNEL_FULL) $^ -o$@
+	$(AS) $(KERNEL_FULL) $< -o$@
 
 kernel_uio: $(KERNEL_SOURCES)
-	$(AS) $(KERNEL_UIO) $^ -o$@
+	$(AS) $(KERNEL_UIO) $< -o$@
 	
 kernel_min: $(KERNEL_SOURCES)
-	$(AS) $(KERNEL_MIN) $^ -o$@
+	$(AS) $(KERNEL_MIN) $< -o$@
 	
 ioman_full: $(NITROS9_MODULE_DIR)/ioman.asm
-	$(AS) $(KERNEL_FULL) $? -o$@
+	$(AS) $(KERNEL_FULL) $< -o$@
 
 ioman_uio: $(NITROS9_MODULE_DIR)/ioman.asm
-	$(AS) $(KERNEL_UIO) $? -o$@
+	$(AS) $(KERNEL_UIO) $< -o$@
 
 scf: $(NITROS9_MODULE_DIR)/scf.asm
 	$(AS) $(AFLAGS) $< -o$@
@@ -88,16 +98,16 @@ procs: $(NITROS9_COMMAND_DIR)/procs.asm
 	$(AS) $(AFLAGS) $< -o$@
 	
 tkt9sim_full: tkt9sim.asm
-	$(AS) $(KERNEL_FULL) $? -o$@
+	$(AS) $(KERNEL_FULL) $< -o$@
 
 tkt9sim_uio: tkt9sim.asm
-	$(AS) $(KERNEL_UIO) $? -o$@
+	$(AS) $(KERNEL_UIO) $< -o$@
 	
 tkt9sim_min: tkt9sim.asm
-	$(AS) $(KERNEL_MIN) $? -o$@
+	$(AS) $(KERNEL_MIN) $< -o$@
 
 go_smoke: go_smoke.asm
-	$(AS) $(KERNEL_MIN) $? -o$@
+	$(AS) $(KERNEL_MIN) $< -o$@
 	
 lint: *.asm $(KERNEL_SOURCES) $(MODULE_SOURCES)
 	$(foreach file,$^,mamou -ls -p $(file) > /tmp/lint.out; mv /tmp/lint.out $(file) ;)
@@ -150,3 +160,6 @@ clean:
 
 gh:
 	open "http://www.github.com/boisy/turbos"
+
+# Rebuild layout-dependent modules when shared flags or port definitions change.
+$(KERNELS) $(OBJS_DEV) $(OBJS_CORE) $(OBJS_LITE) $(OBJS_SMOKE): $(NITROS9_KERNEL_DIR)/features.d defs.d $(DEFSDIR)/turbos.d Makefile

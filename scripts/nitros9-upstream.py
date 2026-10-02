@@ -70,7 +70,8 @@ def check(checkout: Path) -> int:
         ("git", "rev-parse", "HEAD"), cwd=checkout, text=True
     ).strip()
     if revision != lock["NITROS9_REVISION"]:
-        print(f"warning: expected {lock['NITROS9_REVISION']}, found {revision}")
+        print(f"Expected {lock['NITROS9_REVISION']}, found {revision}", file=sys.stderr)
+        return 2
 
     failures = 0
     totals = {"exact-code": 0, "adapted": 0, "rewritten": 0}
@@ -86,7 +87,7 @@ def check(checkout: Path) -> int:
         same = semantic_lines(comparison) == semantic_lines(upstream)
         actual = "exact-code" if same else relationship
         totals[actual] += 1
-        if relationship == "exact-code" and not same:
+        if relationship == "exact-code" and comparison.read_bytes() != upstream.read_bytes():
             print(f"DRIFT       {local_name} <- {upstream_name}")
             failures += 1
 
@@ -135,7 +136,7 @@ def materialize(checkout: Path) -> int:
         "--directory=.upstream/generated", str(PATCH), cwd=ROOT,
     )
     print(f"Materialized and patched {copied} NitrOS-9 sources in {destination}")
-    return 0
+    return check(checkout)
 
 
 def main() -> int:
