@@ -1582,636 +1582,10 @@ index c8ab441..2e07540 100644
 + puls y,x,b,a restore registers
 +Match andcc #^Carry clear carry to indicate a match
 + rts return to caller
-diff --git a/source/kernel/fexit.asm b/source/kernel/fexit.asm
-index 966d1ac..fde7e8a 100644
---- a/source/kernel/fexit.asm
-+++ b/source/kernel/fexit.asm
-@@ -1,10 +1,24 @@
-+*******************************************************************************
-+* TurbOS
-+*******************************************************************************
-+* See LICENSE.txt for licensing information.
-+*******************************************************************************
-+*
-+* Edt/Rev  YYYY/MM/DD  Modified by
-+* Comment
-+* ----------------------------------------------------------------------------
-+*          2023/08/11  Boisy Pitre
-+* Initial creation.
-+*
-+*******************************************************************************
-+
- ;;; F$Exit
- ;;;
- ;;; Terminate the calling process.
- ;;;
--;;; Entry:  B = The status code to return to the parent process.
-+;;; Entry: B = The status code to return to the parent process.
- ;;;
--;;; Exit:   The process is terminated.
-+;;; Exit: The process is terminated.
- ;;;
- ;;; F$Exit is the only way a process can terminate itself. F$Exit deallocates the process’ data memory area and
- ;;; unlinks the process' primary module. It also closes all open paths automatically.
-@@ -15,170 +29,73 @@
- ;;; Exit unlinks only the primary module. Unlink any module that is loaded or linked to by the process before
- ;;; calling F$Exit.
- 
--                  IFEQ    Level-1 ; begin conditional assembly for Level-1
--
--FExit               ldx       <D.Proc   ; get pointer to current process descriptor
--                    ldb       R$B,u     ; get exit code
--                    stb       P$Signal,x ; save it as the process' signal
-+FExit ldx <D.Proc get pointer to current process descriptor
-+ ldb R$B,u get exit code
-+ stb P$Signal,x save it as the process' signal
-+ ifne _FF_UNIFIED_IO
- * Close all open paths that this process has
--                    ldb       #NumPaths ; get the number pf paths
--                    leay      P$PATH,x  ; point Y to the base of the path table in the process descriptor
--loop@               lda       ,y+       ; get a path
--                    beq       empty@    ; branch if empty
--                    pshs      b         ; else save off counter
--                    os9       I$Close   ; close the path
--                    puls      b         ; recover the counter
--empty@              decb                ; decrement
--                    bne       loop@     ; branch if more paths to close
-+ ldb #NumPaths get the number pf paths
-+ leay P$PATH,x point Y to the base of the path table in the process descriptor
-+loop@ lda ,y+ get a path
-+ beq empty@ branch if empty
-+ pshs b else save off counter
-+ os9 I$Close close the path
-+ puls b recover the counter
-+empty@ decb decrement
-+ bne loop@ branch if more paths to close
-+ endc 
- * Free any allocated memory associated with this process
--                    lda       P$ADDR,x  ; get 256 byte page number of allocated memory
--                    tfr       d,u       ; transfer to D to U
--                    lda       P$PagCnt,x ; get allocated page count in A
--                    os9       F$SRtMem  ; return that memory to the system
--                    ldu       P$PModul,x ; get the pointer to the primary module
--                    os9       F$UnLink  ; unlink it
-+ lda P$ADDR,x get 256 byte page number of allocated memory
-+ tfr d,u transfer to D to U
-+ lda P$PagCnt,x get allocated page count in A
-+ os9 F$SRtMem return that memory to the system
-+ ldu P$PModul,x get the pointer to the primary module
-+ os9 F$UnLink unlink it
- * Go through the siblings of this process
--                    ldu       <D.Proc   ; get the current process pointer
--                    leay      P$PID,u   ; point Y to the start of the process descriptor
--                    ldx       <D.PrcDBT ; and X to the process descriptor table
--                    bra       clearsid@ ; go clear the sibling ID
--retprocdesc@        clr       P$SID,y   ; clear the sibling ID
--                    os9       F$Find64  ; find the sibling's process descriptor and put it in Y
--                    lda       P$State,y ; load the sibling process' state
--                    bita      #Dead     ; is it dead?
--                    beq       clearids@ ; branch if not
--                    lda       P$ID,y    ; else get the sibling's process ID
--                    os9       F$Ret64   ; and free the sibling's process descriptor
--clearids@           clr       P$PID,y   ; clear the parent ID
--clearsid@           lda       P$SID,y   ; get the sibling ID
--                    bne       retprocdesc@ ; branch if there is one
-+ ldu <D.Proc get the current process pointer
-+ leay P$PID,u point Y to the start of the process descriptor
-+ ldx <D.PrcDBT and X to the process descriptor table
-+ bra clearsid@ go clear the sibling ID
-+retprocdesc@ clr P$SID,y clear the sibling ID
-+ os9 F$Find64 find the sibling's process descriptor and put it in Y
-+ lda P$State,y load the sibling process' state
-+ bita #Dead is it dead?
-+ beq clearids@ branch if not
-+ lda P$ID,y else get the sibling's process ID
-+ os9 F$Ret64 and free the sibling's process descriptor
-+clearids@ clr P$PID,y clear the parent ID
-+clearsid@ lda P$SID,y get the sibling ID
-+ bne retprocdesc@ branch if there is one
- * Start sifting through the wait queue if there's a parent
--                    ldx       #(D.WProcQ-P$Queue) ; load U with D.WProcQ-P$Queue so we're at the first process in the queue later
--                    lda       P$PID,u   ; get the parent ID
--                    bne       fixparent@ ; branch if there is a parent
-+ ldx #(D.WProcQ-P$Queue) load U with D.WProcQ-P$Queue so we're at the first process in the queue later
-+ lda P$PID,u get the parent ID
-+ bne fixparent@ branch if there is a parent
- * This process doesn't have a parent. Just return its process descriptor and exit
--                    ldx       <D.PrcDBT ; get process descriptor pointer table in X
--                    lda       P$ID,u    ; get ID of process
--                    os9       F$Ret64   ; and return the 64 byte block for this process descriptor
--                    bra       ex@       ; then return to the caller
-+ ldx <D.PrcDBT get process descriptor pointer table in X
-+ lda P$ID,u get ID of process
-+ os9 F$Ret64 and return the 64 byte block for this process descriptor
-+ bra ex@ then return to the caller
- * Go through wait queue and alert the parent
--loop2@              cmpa      P$ID,x    ; is this the parent?
--                    beq       foundparent@ ; branch if so
--fixparent@          leay      ,x        ; point Y to the process descriptor
--                    ldx       P$Queue,x ; get the queue this process is in
--                    bne       loop2@    ; branch if not empty
--                    lda       P$State,u ; get state
--                    ora       #Dead     ; mark it as dead
--                    sta       P$State,u ; save state
--                    bra       ex@       ; then exit
--* X = parent process descriptor for process that is exiting
-+loop2@ cmpa P$ID,x is this the parent?
-+ beq foundparent@ branch if so
-+fixparent@ leay ,x point Y to the process descriptor
-+ ldx P$Queue,x get the queue this process is in
-+ bne loop2@ branch if not empty
-+ lda P$State,u get state 
-+ ora #Dead mark it as dead
-+ sta P$State,u save state
-+ bra ex@ then exit
-+* X = parent process descriptor for process that is exiting              
- * Y = process descriptor in front of parent process in queue
- * U = ???
--foundparent@        ldd       P$Queue,x ; get the queue that the parent is in
--                    std       P$Queue,y ; and store it in the previous process descriptor (removes the parent from the qeue)
--                    os9       F$AProc   ; then put parent process back in the active queue
--                    leay      ,u        ; point Y to U
--                    ldu       P$SP,x    ; get caller's stack pointer
--                    ldu       R$D,u     ; get caller's D register
--                    lbsr      SignalProcess ; signal the process
--ex@                 clra                ; clear A
--                    clrb                ; clear B
--                    std       <D.Proc   ; clear out current process descriptor
--                    rts                 ; return to caller
--
--                  ELSE
--
--FExit               ldx       <D.Proc   ; get current process pointer
--                    bsr       FExitTarget ; close all the paths
--                    ldb       R$B,u     ; get exit signal
--                    stb       <P$Signal,x ; and save in proc desc
--                    leay      P$PID,x   ; compute P$PID,x into Y
--                    bra       FExitChildID2 ; go find kids...
--
--FExitChildID        clr       P$SID,y   ; clear child ID
--                    lbsr      FGprocpTarget ; find its proc desc
--                    clr       1,y       ; clear sibling ID
--                  IFNE    H6309   ; begin conditional assembly for H6309
--                    tim       #Dead,P$State,y
--                  ELSE
--                    lda       P$State,y ; get child's state
--                    bita      #Dead     ; is it dead?
--                  ENDC
--                    beq       FExitChildID2 ; ...no
--                    lda       P$ID,y    ; else get its ID
--                    lbsr      FAllprcTarget2 ; and destroy its proc desc
--FExitChildID2       lda       P$SID,y   ; get child ID
--                    bne       FExitChildID ; ...yes, loop
--
--                    leay      ,x        ; kid's proc desc
--                    ldx       #D.WProcQ-P$Queue ; load X from #D.WProcQ-P$Queue
--                    lds       <D.SysStk ; use system stack
--                    pshs      cc        ; save CC
--                    orcc      #IntMasks ; halt interrupts
--                    lda       P$PID,y   ; get our parent ID
--                    bne       FExitBaseDesc ; and wake him up
--
--                    puls      cc        ; restore CC
--                    lda       P$ID,y    ; get our ID
--                    lbsr      FAllprcTarget2 ; give up our proc desc
--                    bra       FExitStartProcAct ; and start next active process
--
--* Search for Waiting Parent
--FExitProcDescOur    cmpa      P$ID,x    ; is proc desc our parent's?
--                    beq       FExitTakeParOut ; ...yes!
--
--FExitBaseDesc       leau      ,x        ; U is base desc
--                    ldx       P$Queue,x ; X is next waiter
--                    bne       FExitProcDescOur ; see if parent
--                    puls      cc        ; restore CC
--                    lda       #(SysState!Dead) ; set us to system state
--                    sta       P$State,y ; and mark us as dead
--                    bra       FExitStartProcAct ; so F$Wait will find us; next proc
--
--* Found Parent (X)
--FExitTakeParOut     ldd       P$Queue,x ; take parent out of wait queue
--                    std       P$Queue,u ; store D at P$Queue,u
--                    puls      cc        ; restore CC
--                    ldu       P$SP,x    ; get parent's stack register
--                    ldu       R$U,u     ; load U from R$U,u
--                    lbsr      FAllprcProcIDDead ; get child's death signal to parent
--                    os9       F$AProc   ; move parent to active queue
--FExitStartProcAct   os9       F$NProc   ; start next proc in active queue
--
--* Close Proc I/O Paths & Unlink Mem
--* Entry: U=Register stack pointer
--FExitTarget         pshs      u         ; preserve register stack pointer
--                    ldb       #NumPaths ; get maximum # of paths
--                    leay      P$Path,x  ; point to path table
--FExitPathOpen       lda       ,y+       ; path open?
--                    beq       FExitTarget2 ; no, skip ahead
--                    clr       -1,y      ; clear the path block #
--                    pshs      b         ; preserve count
--                    os9       I$Close   ; close the path
--                    puls      b         ; restore count
--FExitTarget2        decb                ; done?
--                    bne       FExitPathOpen ; no, continue looking
--
--* Clean up memory process had
--                    clra                ; get starting block
--                    ldb       P$PagCnt,x ; get page count
--                    beq       FExitDproc ; none there, skip ahead
--                    addb      #$1F      ; round it up
--                    lsrb                ; divide by 32 to get block count
--                    lsrb                ; shift or rotate and update condition codes
--                    lsrb                ; shift or rotate and update condition codes
--                    lsrb                ; shift or rotate and update condition codes
--                    lsrb                ; shift or rotate and update condition codes
--                    os9       F$DelImg  ; delete the ram & DAT image
--* Unlink the module
--FExitDproc          ldd       <D.Proc   ; load D from <D.Proc
--                    pshs      d         ; save d on the stack
--                    stx       <D.Proc   ; set bad proc
--                    ldu       P$PModul,x ; program pointer
--                    os9       F$UnLink  ; unlink aborted program
--                    puls      u,b,a     ; restore u,b,a from the stack
--                    std       <D.Proc   ; reset parent proc
--                    os9       F$DelTsk  ; release X's task #
--                    rts                 ; return to caller
--
--                  ENDC
-+foundparent@ ldd P$Queue,x get the queue that the parent is in
-+ std P$Queue,y and store it in the previous process descriptor (removes the parent from the qeue)
-+ os9 F$AProc then put parent process back in the active queue
-+ leay ,u point Y to U
-+ ldu P$SP,x get caller's stack pointer
-+ ldu R$D,u get caller's D register
-+ lbsr SignalProcess signal the process
-+ex@ clra clear A
-+ clrb clear B
-+ std <D.Proc clear out current process descriptor
-+ rts return to caller
-diff --git a/source/kernel/ffork.asm b/source/kernel/ffork.asm
-index ce2e6df..8d91fbc 100644
---- a/source/kernel/ffork.asm
-+++ b/source/kernel/ffork.asm
-@@ -1,36 +1,50 @@
-+*******************************************************************************
-+* TurbOS
-+*******************************************************************************
-+* See LICENSE.txt for licensing information.
-+*******************************************************************************
-+*
-+* Edt/Rev  YYYY/MM/DD  Modified by
-+* Comment
-+* ----------------------------------------------------------------------------
-+*          2023/08/11  Boisy Pitre
-+* Initial creation.
-+*
-+*******************************************************************************
-+
- ;;; F$Fork
- ;;;
- ;;; Links or loads a module and create a new process.
- ;;;
--;;; Entry:  A = The type/language byte.
--;;;         B = Size of the optional data area (in pages).
--;;;         X = Address of the module name or filename.
--;;;         Y = Size of the parameter area (in bytes). The default is 0.
--;;;         U = Starting address of the parameter area. This must be at least one page.
--;;;
--;;; Exit:   A = New process I/O number.
--;;;         X = Address of the last byte of the name plus 1.
--;;;        CC = Carry flag clear to indicate success.
-+;;; Entry: A = The type/language byte.
-+;;; B = Size of the optional data area (in pages).
-+;;; X = Address of the module name or filename.
-+;;; Y = Size of the parameter area (in pages). The default is 0.
-+;;; U = Starting address of the parameter area. This must be at least one page.
- ;;;
--;;; Error:  B = A non-zero error code.
--;;;        CC = Carry flag set to indicate error.
-+;;; Exit: A = New process I/O number.
-+;;; X = Address of the last byte of the name plus 1.
-+;;; CC = Carry flag clear to indicate success.
-+;;; 
-+;;; Error: B = A non-zero error code.
-+;;; CC = Carry flag set to indicate error.
- ;;;
- ;;; F$Fork creates a new child process of the calling process. It also sets up the child process’ memory,
- ;;; 6809 registers, and standard I/O paths.
- ;;;
- ;;; Upon success, X hold the address of the character past the name. For example, before the call:
- ;;;
--;;;   X
--;;;  _|__________________
-+;;; X
-+;;; _|__________________
- ;;; | T | E | S | T | \n |
--;;;  --------------------
-+;;; --------------------
- ;;;
- ;;; And after the call:
- ;;;
--;;;                    X
--;;;  __________________|_
-+;;; X
-+;;; __________________|_
- ;;; | T | E | S | T | \n |
--;;;  --------------------
-+;;; --------------------
- ;;;
- ;;; When the system call starts, it parses the passed name, then searches
- ;;; the module directory to see if the module is already in memory. If it is,
-@@ -44,17 +58,17 @@
- ;;; If the allocation succeeds, F$Fork copies the parameters at U into the data area, then sets the registers for the
- ;;; child process like this:
- ;;;
--;;;   ------------------  <- Y (Highest address)
--;;;  |  Parameter area  |
--;;;  |------------------| <- X, SP
--;;;  |                  |
--;;;  |     Data area    |
--;;;  |                  |
--;;;  |------------------|
--;;;  |                  |
--;;;  |    Direct page   |
--;;;  |                  |
--;;;   ------------------  <- U, DP (Lowest address)
-+;;; ------------------ <- Y (Highest address)
-+;;; | Parameter area |
-+;;; |------------------| <- X, SP 
-+;;; | |
-+;;; | Data area |
-+;;; | |
-+;;; |------------------| 
-+;;; | |
-+;;; | Direct page |
-+;;; | |
-+;;; ------------------ <- U, DP (Lowest address)
- ;;;
- ;;; D holds the size of the parameter area in bytes, the PC points to the primary module's execution entry point, and
- ;;; CC's FIRQ and IRQ mask flags are clear.
-@@ -81,199 +95,68 @@
- ;;;
- ;;; Don't call F$Fork with a memory size of zero.
- 
--                  IFEQ    Level-1 ; begin conditional assembly for Level-1
--
--FFork               ldx       <D.PrcDBT ; get the pointer to the process descriptor table
--                    os9       F$All64   ; allocate a 64 byte page of RAM
--                    bcs       errex@    ; branch if error
--                    ldx       <D.Proc   ; get the parent (current) process descriptor
--                    pshs      x         ; save it on the stack
--                    ldd       P$User,x  ; get the user ID of the parent process
--                    std       P$User,y  ; save it in the child process descriptor
--                    lda       P$Prior,x ; get the priority of the parent process
--                    clrb                ; B = 0
--                    std       P$Prior,y ; store it in the child process descriptor
--                    ldb       #SysState ; get system state flag into B
--                    stb       P$State,y ; set the System State flag in the child process descriptor
--                    sty       <D.Proc   ; make the child process the current process
-+FFork ldx <D.PrcDBT get the pointer to the process descriptor table 
-+ os9 F$All64 allocate a 64 byte page of RAM for the process descriptor
-+ bcs errex@ branch if error
-+ ldx <D.Proc get the parent (current) process descriptor
-+ pshs x save it on the stack
-+ ldd P$User,x get the user ID of the parent process
-+ std P$User,y save it in the child process descriptor
-+ lda P$Prior,x get the priority of the parent process
-+ clrb B = 0
-+ std P$Prior,y store it in the child process descriptor
-+ ldb #SysState get system state flag into B
-+ stb P$State,y set the System State flag in the child process descriptor
-+ sty <D.Proc make the child process the current process
- **** I/O related process descriptor setup
--                    ldd       <P$NIO,x  ; get the parent process' Net I/O pointer
--                    std       <P$NIO,y  ; save it in the child process descriptor
--                    ldd       <P$NIO+2,x ; copy next two bytes
--                    std       <P$NIO+2,y ; over to child process descriptor
--                    leax      <P$DIO,x  ; point X to the the parent process' Disk I/O section
--                    leay      <P$DIO,y  ; point Y to the child process' Disk I/O section
--                    ldb       #DefIOSiz ; get the size of the section
--loop@               lda       ,x+       ; get byte at x and increment
--                    sta       ,y+       ; save byte at y and increment
--                    decb                ; decrement loop counter
--                    bne       loop@     ; branch if not done
-+ ifne _FF_UNIFIED_IO
-+ ldd <P$NIO,x get the parent process' Net I/O pointer
-+ std <P$NIO,y save it in the child process descriptor
-+ ldd <P$NIO+2,x copy next two bytes
-+ std <P$NIO+2,y over to child process descriptor
-+ leax <P$DIO,x point X to the the parent process' Disk I/O section
-+ leay <P$DIO,y point Y to the child process' Disk I/O section
-+ ldb #DefIOSiz get the size of the section
-+loop@ lda ,x+ get byte at x and increment
-+ sta ,y+ save byte at y and increment
-+ decb decrement loop counter
-+ bne loop@ branch if not done
- * It so happens that X and Y are now pointing to P$PATH in the process descriptor, so
- * there's no need to load them explicitly.
- * Duplicate stdin/stdout/stderr.
--                    ldb       #$03      ; copy first three paths from parent to child
--duploop@            lda       ,x+       ; get next available path in parent process descriptor
--                    pshs      b         ; save the count (fixes a bug where I$Dup will continue forever if IOMan is not installed)
--                    os9       I$Dup     ; duplicate it
--                    bcc       dupok@    ; branch if ok
--                    clra                ; else if error, just make it zero
--dupok@              sta       ,y+       ; store it in the child process descriptor
--                    puls      b         ; restore the count
--                    decb                ; decrement the counter
--                    bne       duploop@  ; and branch back if not done
-+ ldb #$03 copy first three paths from parent to child
-+duploop@ lda ,x+ get next available path in parent process descriptor 
-+ pshs b save the count (fixes a bug where I$Dup will continue forever if IOMan is not installed) 
-+ os9 I$Dup duplicate it
-+ bcc dupok@ branch if ok
-+ clra else if error, just make it zero
-+dupok@ sta ,y+ store it in the child process descriptor
-+ puls b restore the count
-+ decb decrement the counter
-+ bne duploop@ and branch back if not done
-+ endc 
- **** I/O related process descriptor setup
--                    bsr       SetupPrc  ; set up process
--                    bcs       ex@       ; branch if an error occured
--                    puls      y         ; get the parent process descriptor
--                    sty       <D.Proc   ; and make it the current process
--                    lda       P$ID,x    ; get the process ID of child process descriptor
--                    sta       R$A,u     ; store it in caller's A
--                    ldb       P$CID,y   ; get child ID of parent process descriptor
--                    sta       P$CID,y   ; store child process ID in parent's child process ID
--                    lda       P$ID,y    ; get process ID of parent process
--                    std       P$PID,x   ; store it in child's process descriptor
--                    ldb       P$State,x ; update state of the child process descriptor
--                    andb      #^SysState ; turn off system state
--                    stb       P$State,x ; save back to process descriptor
--                    os9       F$AProc   ; insert the child process into active queue
--                    rts                 ; return to the caller
--ex@                 pshs      b         ; save off B to stack
--                    os9       F$Exit    ; and exit
--                    comb                ; set carry
--                    puls      x,b       ; restore X and B
--                    stx       <D.Proc   ; save X to process descriptor
--                    rts                 ; return
--errex@              comb                ; set carry
--                    ldb       #E$PrcFul ; error is process table is full
--                    rts                 ; and return
--
--                  ELSE
--
--FFork               pshs      u         ; preserve register stack pointer
--                    lbsr      AllPrc    ; setup a new process descriptor
--                    bcc       GotNPrc   ; went ok, keep going
--                    puls      u,pc      ; restore & return with error
--
--* Copy user # & priority
--GotNPrc             pshs      u         ; save pointer to new descriptor
--                    ldx       <D.Proc   ; get current process pointer
--                  IFNE    H6309   ; begin conditional assembly for H6309
--                    ldq       P$User,x  Get user # & priority from forking process
--                    std       P$User,u  ; save user # in new process
--                    ste       P$Prior,u Save priority in new process
--                  ELSE
--                    ldd       P$User,x  ; load D from P$User,x
--                    std       P$User,u  ; store D at P$User,u
--                    lda       P$Prior,x ; load A from P$Prior,x
--                    sta       P$Prior,u ; store A at P$Prior,u
--                  ENDC
--* Copy network I/O pointers to new descriptor
--                  IFEQ    Network-1 ; begin conditional assembly for Network-1
--                    pshs      x,u       ; save x,u on the stack
--                    leax      >P$NIO,x  ; point to current NIO pointers
--                    leau      >P$NIO,u  ; point to buffer for new ones
--                  IFNE    H6309   ; begin conditional assembly for H6309
--                    ldw       #NefIOSiz get size
--                    tfm       x+,u+     move 'em
--                  ELSE
--                    ldb       #NefIOSiz ; load B from #NefIOSiz
--FForkTarget         lda       ,x+       ; load A from ,x+
--                    sta       ,u+       ; store A at ,u+
--                    decb                ; decrement B
--                    bne       FForkTarget ; branch if zero is clear to FForkTarget
--                  ENDC
--                    puls      x,u       ; restore pointers to descriptors
--                  ENDC
--* Copy CWD and CXD info (Device Entry pointers and directory PSN) to new descriptor
--                    leax      P$DIO,x   ; compute P$DIO,x into X
--                    leau      P$DIO,u   ; compute P$DIO,u into U
--                  IFNE    H6309   ; begin conditional assembly for H6309
--                    ldw       #DefIOSiz six bytes for CWD, six bytes for CXD
--                    tfm       x+,u+
--                    lde       #3        next, child inherits first 3 I/O paths
--                  ELSE
--                    ldb       #DefIOSiz ; six bytes for CWD, six bytes for CXD
--FForkTarget2        lda       ,x+       ; load A from ,x+
--                    sta       ,u+       ; store A at ,u+
--                    decb                ; decrement B
--                    bne       FForkTarget2 ; branch if zero is clear to FForkTarget2
--                    ldy       #3        ; next, child inherits first 3 I/O paths
--                  ENDC
--
--* Duplicate first 3 I/O paths from parent to child
--GetOPth             lda       ,x+       ; get a path #
--                    beq       SveNPth   ; don't exist, go on
--                    os9       I$Dup     ; dupe it
--                    bcc       SveNPth   ; no error, go on
--                    clra                ; clear it
--
--* As std in/out/err
--SveNPth             sta       ,u+       ; save new path #
--                  IFNE    H6309   ; begin conditional assembly for H6309
--                    dece                ; count down from 3.  done?
--                  ELSE
--                    leay      -1,y      ; count down from 3.  done?
--                  ENDC
--                    bne       GetOPth   ; no, keep going
--* Link to new module & setup task map
--                    ldx       ,s        ; get pointer to new descriptor
--                    ldu       2,s       ; get pointer to register stack
--                    lbsr      FChainEverything ; link to module & setup register stack
--                    bcs       FForkTarget3 ; exit if error
--                    pshs      d         ; save d on the stack
--                    os9       F$AllTsk  ; allocate the task & setup MMU
--                    bcs       FForkTarget3 ; error, skip ahead
--
--* Copy parameters to new process
--                    lda       P$PagCnt,x ; get memory page count
--                    clrb                ; clear B
--                    subd      ,s        ; calculate destination
--                    tfr       d,u       ; set parameter destination pointer
--                    ldb       P$Task,x  ; get source task #
--                    ldx       <D.Proc   ; get destination task #
--                    lda       P$Task,x  ; load A from P$Task,x
--                    leax      ,y        ; point to parameters
--                    puls      y         ; restore parameter count
--                    os9       F$Move    ; move parameters to new process
--
--* Setup the new stack
--                    ldx       ,s        ; get pointer to process descriptor
--                    lda       <D.SysTsk ; get task #
--                    ldu       P$SP,x    ; get new stack pointer
--                    leax      >(P$Stack-R$Size),x ; point to register stack
--                    ldy       #R$Size   ; get size of register stack
--                    os9       F$Move    ; move the register stack over
--                    puls      u,x       ; restore u,x from the stack
--                    os9       F$DelTsk  ; call OS-9 service F$DelTsk
--                    ldy       <D.Proc   ; load Y from <D.Proc
--                    lda       P$ID,x    ; load A from P$ID,x
--                    sta       R$A,u     ; store A at R$A,u
--                    ldb       P$CID,y   ; load B from P$CID,y
--                    sta       P$CID,y   ; store A at P$CID,y
--                    lda       P$ID,y    ; load A from P$ID,y
--                    std       P$PID,x   ; store D at P$PID,x
--                  IFNE    H6309   ; begin conditional assembly for H6309
--                    aim       #^SysState,P$State,x switch to non-system state
--                  ELSE
--                    lda       P$State,x ; load A from P$State,x
--                    anda      #^SysState ; mask A with #^SysState
--                    sta       P$State,x ; store A at P$State,x
--                  ENDC
--* Put date & time of creation into descriptor
--*         pshs   x          preserve process pointer
--*         leax   P$DatBeg,x point to time buffer
--*         os9    F$Time     put date/time into it
--*         puls   x          restore pointer
--                    os9       F$AProc   ; and start the process
--                    rts                 ; return
--
--* Fork error goes here
--FForkTarget3        puls      x         ; restore x from the stack
--                    pshs      b         ; save error
--                    lbsr      FExitTarget ; close paths & unlink mem
--                    lda       P$ID,x    ; get bad ID
--                    lbsr      FAllprcTarget2 ; delete proc desc & task #
--                    comb                ; set carry
--                    puls      pc,u,b    ; pull error code & u & return
--
--                  ENDC
-+ bsr SetupPrc set up process
-+ bcs ex@ branch if an error occured
-+ puls y get the parent process descriptor
-+ sty <D.Proc and make it the current process
-+ lda P$ID,x get the process ID of child process descriptor
-+ sta R$A,u store it in caller's A
-+ ldb P$CID,y get child ID of parent process descriptor
-+ sta P$CID,y store child process ID in parent's child process ID
-+ lda P$ID,y get process ID of parent process
-+ std P$PID,x store it in child's process descriptor
-+ ldb P$State,x update state of the child process descriptor
-+ andb #^SysState turn off system state
-+ stb P$State,x save back to process descriptor
-+ os9 F$AProc insert the child process into active queue
-+ rts return to the caller
-+ex@ pshs b save off B to stack
-+ os9 F$Exit and exit
-+ comb set carry
-+ puls x,b restore X and B
-+ stx <D.Proc save X to process descriptor
-+ rts return
-+errex@ comb set carry
-+ ldb #E$PrcFul error is process table is full
-+ rts and return
 diff --git a/source/kernel/firq.asm b/source/kernel/firq.asm
-index c6ef534..1163659 100644
 --- a/source/kernel/firq.asm
 +++ b/source/kernel/firq.asm
-@@ -1,641 +1,131 @@
+@@ -1,657 +1,131 @@
 -********************************************************************
 -* Krn - NitrOS-9 Level 1 Kernel
 -*
@@ -2253,14 +1627,9 @@ index c6ef534..1163659 100644
 -*               |                                  |
 -*               |                                  |
 -*     $0900---->|==================================|
-+*******************************************************************************
-+* TurbOS
-+*******************************************************************************
-+* See LICENSE.txt for licensing information.
-+*******************************************************************************
- *
- * Edt/Rev  YYYY/MM/DD  Modified by
- * Comment
+-*
+-* Edt/Rev  YYYY/MM/DD  Modified by
+-* Comment
 -* ------------------------------------------------------------------
 -*  14      1985/??/??
 -* From Tandy OS-9 Level One VR 02.00.00
@@ -2275,10 +1644,7 @@ index c6ef534..1163659 100644
 -*  15r1    2003/12/09  Boisy G. Pitre
 -* Kernel no longer scans for modules in I/O space.  Also, F$PrsNam now
 -* allows _ and 0-9 as first chars of a filename.
-+* ----------------------------------------------------------------------------
-+*          2023/08/11  Boisy Pitre
-+* Initial creation.
- *
+-*
 -*  15r1    2004/05/23  Boisy G. Pitre
 -* Renamed to 'krn'
 -*
@@ -2289,6 +1655,7 @@ index c6ef534..1163659 100644
 -                    ttl       NitrOS-9 Level 1 Kernel
 -
 -                    use       defsfile  ; include source file defsfile
+-                    use       features.d
 -
 -tylg                set       Systm+Objct ; define assembler symbol
 -atrv                set       ReEnt+rev ; define assembler symbol
@@ -2565,10 +1932,12 @@ index c6ef534..1163659 100644
 -                    os9       F$Link    ; link to it
 -                    lbcs      OS9Cold   ; if error, restart kernel
 -                    stu       <D.Init   ; else store it in system globals
+-                    ifne      _FF_MODCHECK
 -                    lda       Feature1,u ; get feature byte 1
 -                    bita      #CRCOn    ; is CRC checking on?
 -                    beq       continue@ ; branch if not (already cleared earlier)
 -                    inc       <D.CRC    ; else turn on CRC checking
+-                    endc
 -continue@
 -
 -* Jump into krnp2 here
@@ -2615,21 +1984,26 @@ index c6ef534..1163659 100644
 -                    sta       P$State,x ; store it
 -                    jmp       ,y        ; jump to the polling routine
 -
--DoIRQPoll           jsr       [>D.Poll] ; call the interrupt polling routine
+-DoIRQPoll           equ       *
+-                    ifne      _FF_IRQ_POLL
+-                    jsr       [>D.Poll] ; call the interrupt polling routine
 -                    bcc       go@       ; branch if carry clear
 -                    ldb       ,s        ; get the CC on the stack
 -                    orb       #IRQMask  ; mask IRQs
 -                    stb       ,s        ; and save it back
+-                    endc
 -go@                 lbra      ActivateProc ; go activate the process
 -
 -* System state interrupt service routine entry
 -SysIRQ              clra                ; clear A
 -                    tfr       a,dp      ; and transfer it to the direct page
+-                    ifne      _FF_IRQ_POLL
 -                    jsr       [>D.Poll] ; call the vectored IRQ polling routine
 -                    bcc       ex@       ; branch if carry is clear
 -                    ldb       ,s        ; get the CC on the stack
 -                    orb       #IRQMask  ; mask IRQs
 -                    stb       ,s        ; and save it back
+-                    endc
 -ex@                 rti                 ; return from interrupt
 -
 -* This is the default interrupt polling routine -- it does nothing.
@@ -2717,10 +2091,14 @@ index c6ef534..1163659 100644
 -                    stx       R$PC,u    ; restore updated PC
 -                    lslb                ; high bit set?
 -                    bcc       nonio@    ; branch if not (non I/O call)
+-                    ifne      _FF_UNIFIED_IO
 -                    rorb                ; else restore B (its an I/O call)
 -                    ldx       -2,y      ; grab IOMan vector
 -                    beq       callexit@ ; just exit if IOMan vector is empty
 -                    bra       execcall@ ; make system call
+-                    else
+-                    bra       callerr@  ; I/O is not included in this build
+-                    endc
 -nonio@              cmpb      #$37*2    ; non-IO call; are we in safe are?
 -                    bcc       callerr@  ; branch if not (unknown service)
 -                    ldx       b,y       ; X = address of system call
@@ -2744,7 +2122,9 @@ index c6ef534..1163659 100644
 -                    use       fnproc.asm ; include source file fnproc.asm
 -                    use       flink.asm ; include source file flink.asm
 -                    use       fvmodul.asm ; include source file fvmodul.asm
+-                    ifne      _FF_MODCHECK
 -                    use       fcrc.asm  ; include source file fcrc.asm
+-                    endc
 -                    use       ffork.asm ; include source file ffork.asm
 -                    use       fchain.asm ; include source file fchain.asm
 -                    use       fsrqmem.asm ; include source file fsrqmem.asm
@@ -2810,8 +2190,10 @@ index c6ef534..1163659 100644
 -                    fdb       FAllBit-*-2 ; define word value(s) FAllBit-*-2
 -                    fcb       F$DelBit  ; define byte value(s) F$DelBit
 -                    fdb       FDelBit-*-2 ; define word value(s) FDelBit-*-2
+-                    ifne      _FF_MODCHECK
 -                    fcb       F$CRC     ; define byte value(s) F$CRC
 -                    fdb       FCRC-*-2  ; define word value(s) FCRC-*-2
+-                    endc
 -                    fcb       F$SRqMem+SysState ; define byte value(s) F$SRqMem+SysState
 -                    fdb       FSRqMem-*-2 ; define word value(s) FSRqMem-*-2
 -                    fcb       F$SRtMem+SysState ; define byte value(s) F$SRtMem+SysState
@@ -2862,6 +2244,18 @@ index c6ef534..1163659 100644
 -
 -                    end
 +*******************************************************************************
++* TurbOS
++*******************************************************************************
++* See LICENSE.txt for licensing information.
++*******************************************************************************
++*
++* Edt/Rev  YYYY/MM/DD  Modified by
++* Comment
++* ----------------------------------------------------------------------------
++*          2023/08/11  Boisy Pitre
++* Initial creation.
++*
++*******************************************************************************
 +
 +;;; F$IRQ
 +;;;
@@ -2873,7 +2267,7 @@ index c6ef534..1163659 100644
 +;;; U = The address of the interrupt service routine's memory area.
 +;;;
 +;;; Exit: CC = Carry flag clear to indicate success.
-+;;; 
++;;;
 +;;; Error: B = A non-zero error code.
 +;;; CC = Carry flag set to indicate error.
 +;;;
@@ -2968,7 +2362,7 @@ index c6ef534..1163659 100644
 + ldb CM$PollCnt,x get the number of polling entries
 + bra looptop@ start polling
 +loop@ leay POLSIZ,y
-+ decb 
++ decb
 + beq PollError2
 +looptop@ lda [Q$POLL,y] get the polling byte at the entry
 + eora Q$FLIP,y XOR with the flip byte
@@ -3783,889 +3177,6 @@ index bbbf80d..2986f22 100644
 + stx R$X,u
 + clrb 
 + rts 
-diff --git a/source/kernel/fvmodul.asm b/source/kernel/fvmodul.asm
-index b0b19d4..73e2c67 100644
---- a/source/kernel/fvmodul.asm
-+++ b/source/kernel/fvmodul.asm
-@@ -1,3 +1,17 @@
-+*******************************************************************************
-+* TurbOS
-+*******************************************************************************
-+* See LICENSE.txt for licensing information.
-+*******************************************************************************
-+*
-+* Edt/Rev  YYYY/MM/DD  Modified by
-+* Comment
-+* ----------------------------------------------------------------------------
-+*          2023/08/11  Boisy Pitre
-+* Initial creation.
-+*
-+*******************************************************************************
-+
- * Search the module directory for a module of name pointed by X.
- *
- * Entry:  A = Type of module to link.
-@@ -9,103 +23,101 @@
- *
- * Error:  B = A non-zero error code.
- *        CC = Carry flag set to indicate error.
--
--                  IFEQ    Level-1 ; begin conditional assembly for Level-1
- FindModule
--                    ldu       #$0000    ; initialize U with $0000
--                    tfr       a,b       ; copy A to B
--                    anda      #TypeMask ; preserve type bits in A
--                    andb      #LangMask ; preserve language bits in B
--                    pshs      u,y,x,b,a ; save important registers
--_stk1A@             set       0         ; define assembler symbol
--_stk1B@             set       1         ; define assembler symbol
--_stk1X@             set       2         ; define assembler symbol
--_stk1Y@             set       4         ; define assembler symbol
--_stk1U@             set       6         ; define assembler symbol
--                    bsr       eatspace@ ; move X past any spaces
--                    cmpa      #PDELIM   ; pathlist char?
--                    beq       exerr@    ; branch if so
--                    lbsr      ParseNam  ; parse name
--                    bcs       ex@       ; branch if error
--                    ldu       <D.ModDir ; get pointer to module directory
--FindLoop            pshs      u,y,b     ; save important registers
--_stk2B@             set       0         ; B = pathname length
--_stk2Y@             set       1         ; Y =
--_stk2U@             set       3         ; U = address of next module in module directory
--_stk1A@             set       0+_stk2U@+2 ; define assembler symbol
--_stk1B@             set       1+_stk2U@+2 ; define assembler symbol
--_stk1X@             set       2+_stk2U@+2 ; define assembler symbol
--_stk1Y@             set       4+_stk2U@+2 ; define assembler symbol
--_stk1U@             set       6+_stk2U@+2 ; define assembler symbol
--                    ldu       MD$MPtr,u ; get pointer to next module to compare names with
--                    beq       CheckEnd  ; empty entry... continue to next module in list
--                    ldd       M$Name,u  ; get module name offset in module
--                    leay      d,u       ; point Y to module name
--                    ldb       _stk2B@,s ; get length of pathname on stack
--                    lbsr      CmpNam    ; compare name of modules
--                    bcs       NextMod   ; branch if not same name
--                    lda       _stk1A@,s ; get saved type byte on stack
--                    beq       ChkLang   ; same... now check language
--                    eora      M$Type,u  ; eOR with type in module
--                    anda      #TypeMask ; preserve type bits
--                    bne       NextMod   ; branch if not same type
--ChkLang             lda       _stk1B@,s ; get saved language byte on stack
--                    beq       ModFound  ; branch if 0
--                    eora      M$Type,u  ; eOR with language in module
--                    anda      #LangMask ; preserve language bits
--                    bne       NextMod   ; branch if not same language
--ModFound            puls      u,x,b     ; module found... restore regs
--_stk1A@             set       0         ; define assembler symbol
--_stk1B@             set       1         ; define assembler symbol
--_stk1X@             set       2         ; define assembler symbol
--_stk1Y@             set       4         ; define assembler symbol
--_stk1U@             set       6         ; define assembler symbol
--                    stu       _stk1U@,s ; save off found module in caller's U
--                    bsr       eatspace@ ; move past any spaces
--                    stx       _stk1X@,s ; save off character past module name in caller's X
--                    clra                ; clear carry
--                    bra       ex@       ; branch to exit of routine
--_stk2B@             set       0         ; define assembler symbol
--_stk2Y@             set       1         ; define assembler symbol
--_stk2U@             set       3         ; define assembler symbol
--_stk1A@             set       0+_stk2U@+2 ; define assembler symbol
--_stk1B@             set       1+_stk2U@+2 ; define assembler symbol
--_stk1X@             set       2+_stk2U@+2 ; define assembler symbol
--_stk1Y@             set       4+_stk2U@+2 ; define assembler symbol
--_stk1U@             set       6+_stk2U@+2 ; define assembler symbol
--CheckEnd            ldd       _stk1U@,s ; get saved pointer in module directory
--                    bne       NextMod   ; branch to get next module in directory
--                    ldd       _stk2U@,s ; get saved U
--                    std       _stk1U@,s ; put in saved U in earlier stack
--NextMod             puls      u,y,b     ; restore pushed regs
--                    leau      MD$ESize,u ; advance to next module directory entry
--                    cmpu      <D.ModDir+2 ; at end of directory?
--                    bcs       FindLoop  ; no... continue searching
--exerr@              comb                ; set carry
--ex@                 puls      pc,u,y,x,b,a ; return to caller
-+ ldu #$0000 initialize U with $0000
-+ tfr a,b copy A to B
-+ anda #TypeMask preserve type bits in A
-+ andb #LangMask preserve language bits in B
-+ pshs u,y,x,b,a save important registers
-+_stk1A@ set 0
-+_stk1B@ set 1
-+_stk1X@ set 2
-+_stk1Y@ set 4
-+_stk1U@ set 6
-+ bsr eatspace@ move X past any spaces
-+ cmpa #PDELIM pathlist char?
-+ beq exerr@ branch if so
-+ lbsr ParseNam parse name
-+ bcs ex@ branch if error
-+ ldu <D.ModDir get pointer to module directory
-+FindLoop pshs u,y,b save important registers
-+_stk2B@ set 0 B = pathname length
-+_stk2Y@ set 1 Y =
-+_stk2U@ set 3 U = address of next module in module directory
-+_stk1A@ set 0+_stk2U@+2
-+_stk1B@ set 1+_stk2U@+2
-+_stk1X@ set 2+_stk2U@+2
-+_stk1Y@ set 4+_stk2U@+2
-+_stk1U@ set 6+_stk2U@+2
-+ ldu MD$MPtr,u get pointer to next module to compare names with
-+ beq CheckEnd empty entry... continue to next module in list
-+ ldd M$Name,u get module name offset in module
-+ leay d,u point Y to module name
-+ ldb _stk2B@,s get length of pathname on stack
-+ lbsr CmpNam compare name of modules
-+ bcs NextMod branch if not same name
-+ lda _stk1A@,s get saved type byte on stack
-+ beq ChkLang same... now check language
-+ eora M$Type,u EOR with type in module
-+ anda #TypeMask preserve type bits
-+ bne NextMod branch if not same type
-+ChkLang lda _stk1B@,s get saved language byte on stack
-+ beq ModFound branch if 0
-+ eora M$Type,u EOR with language in module
-+ anda #LangMask preserve language bits
-+ bne NextMod branch if not same language
-+ModFound puls u,x,b module found... restore regs
-+_stk1A@ set 0
-+_stk1B@ set 1
-+_stk1X@ set 2
-+_stk1Y@ set 4
-+_stk1U@ set 6
-+ stu _stk1U@,s save off found module in caller's U
-+ bsr eatspace@ move past any spaces
-+ stx _stk1X@,s save off character past module name in caller's X
-+ clra clear carry
-+ bra ex@ branch to exit of routine
-+_stk2B@ set 0
-+_stk2Y@ set 1
-+_stk2U@ set 3
-+_stk1A@ set 0+_stk2U@+2
-+_stk1B@ set 1+_stk2U@+2
-+_stk1X@ set 2+_stk2U@+2
-+_stk1Y@ set 4+_stk2U@+2
-+_stk1U@ set 6+_stk2U@+2
-+CheckEnd ldd _stk1U@,s get saved pointer in module directory
-+ bne NextMod branch to get next module in directory
-+ ldd _stk2U@,s get saved U
-+ std _stk1U@,s put in saved U in earlier stack
-+NextMod puls u,y,b restore pushed regs
-+ leau MD$ESize,u advance to next module directory entry
-+ cmpu <D.ModDir+2 at end of directory?
-+ bcs FindLoop no... continue searching
-+exerr@ comb set carry
-+ex@ puls pc,u,y,x,b,a return to caller
- * Advance past any leading spaces in a string.
- *
- * Entry: X = Pointer to string.
- *
- * Exit:  A = First non-space character.
- *        X = Pointer to first non-space character.
--eatspace@           lda       #C$SPAC   ; load A with space character
--loop@               cmpa      ,x+       ; compare with character at X and increment
--                    beq       loop@     ; if space, keep going
--                    lda       ,-x       ; else get non-space character at X-1
--                    rts                 ; return
-+eatspace@ lda #C$SPACE load A with space character
-+loop@ cmpa ,x+ compare with character at X and increment
-+ beq loop@ if space, keep going
-+ lda ,-x else get non-space character at X-1
-+ rts return
- 
- ;;; F$VModul
- ;;;
- ;;; Validate the validity of a module.
- ;;;
--;;; Entry:  X = The address of the module to verify.
-+;;; Entry: X = The address of the module to verify.
- ;;;
--;;; Exit:   U = The absolute address of the module header.
--;;;        CC = Carry flag clear to indicate success.
-+;;; Exit: U = The absolute address of the module header.
-+;;; CC = Carry flag clear to indicate success.
- ;;;
--;;; Error:  B = A non-zero error code.
--;;;        CC = Carry flag set to indicate error.
-+;;; Error: B = A non-zero error code.
-+;;; CC = Carry flag set to indicate error.
- ;;;
- ;;; F$VModul validates that a module exists at the passed address, and if so, searches the module directory
- ;;; for a module with the same name. If one exists, the module with the higher revision level remains in memory.
-@@ -114,574 +126,137 @@ loop@               cmpa      ,x+       ; compare with character at X and increm
- ;;; If the module integrity feature flag is turned on at build time, F$VModul will verify the module's header and
- ;;; CRC to ensure the module is completely correct; otherwise, these checks aren't done.
- 
--FVModul             pshs      u         ; save caller's registers
--                    ldx       R$X,u     ; get caller's X (address of module name)
--                    bsr       ValMod    ; perform the validation
--                    puls      y         ; pull the caller's registers
--                    stu       R$U,y     ; save the new (if any) module address
--                    rts                 ; return to caller
-+FVModul pshs u save caller's registers
-+ ldx R$X,u get caller's X (address of module name)
-+ bsr ValMod perform the validation
-+ puls y pull the caller's registers
-+ stu R$U,y save the new (if any) module address
-+ rts return to caller
- 
- * X = address of module to validate
--ValMod              bsr       ChkMHCRC  ; check the module header and CRC
--                    bcs       ex@       ; ... exit if error
--                    lda       M$Type,x  ; get the type byte
--                    pshs      x,a       ; save off module address
--                    ldd       M$Name,x  ; get module name offset
--                    leax      d,x       ; set X to address of name in module
--                    puls      a         ; restore type byte
--                    lbsr      FindModule ; attempt to locate module in module directory of same name
--                    puls      x         ; restore passed module address
-+ValMod bsr ChkMHCRC check the module header and CRC
-+ bcs ex@ ... exit if error
-+ lda M$Type,x get the type byte
-+ pshs x,a save off module address
-+ ldd M$Name,x get module name offset
-+ leax d,x set X to address of name in module
-+ puls a restore type byte
-+ bsr FindModule attempt to locate module in module directory of same name
-+ puls x restore passed module address
- * Now, X points to module that was passed by caller, and
- * U points to module dirctory entry of the module of the same name that was found (if any)
- * already in module directory
--                    bcs       isempty@  ; branch if FindModule returned error (no module found of the same name)
--                    ldb       #E$KwnMod ; prepare possible error
--                    cmpx      MD$MPtr,u ; is the returned module directory entry the same?
--                    beq       errex@    ; branch if so
-+ bcs isempty@ branch if FindModule returned error (no module found of the same name)
-+ ldb #E$KwnMod prepare possible error
-+ cmpx MD$MPtr,u is the returned module directory entry the same?
-+ beq errex@ branch if so
- * Here, we've established another module of the same name as the one we're validating already
- * exists in the module directory, and it's NOT this same module.
- * Check the revision to see if this one is newer and should replace the existing one.
--                    lda       M$Revs,x  ; else get revision byte of passed module
--                    anda      #RevsMask ; mask out all but revision
--                    pshs      a         ; save off
--                    ldy       MD$MPtr,u ; get pointer to found module (different)
--                    lda       M$Revs,y  ; get revision byte of found module
--                    anda      #RevsMask ; mask out all but revision
--                    cmpa      ,s+       ; compare revisions
--                    bcc       errex@    ; if same or lower, return to caller
--                    pshs      y,x       ; save off pointer to modules
--                    ldb       MD$Link,u ; get link count of module
--                    bne       pulsaveandex@ ; branch if not zero
--                    ldx       MD$MPtr,u ; get address of module into X
--                    cmpx      <D.BTLO   ; compare against Boot low memory pointer
--                    bcc       pulsaveandex@ ; branch if higher
-+ lda M$Revs,x else get revision byte of passed module
-+ anda #RevsMask mask out all but revision
-+ pshs a save off
-+ ldy MD$MPtr,u get pointer to found module (different)
-+ lda M$Revs,y get revision byte of found module
-+ anda #RevsMask mask out all but revision
-+ cmpa ,s+ compare revisions
-+ bcc errex@ if same or lower, return to caller
-+ pshs y,x save off pointer to modules
-+ ldb MD$Link,u get link count of module
-+ bne pulsaveandex@ branch if not zero
-+ ldx MD$MPtr,u get address of module into X
-+ cmpx <D.BTLO compare against Boot low memory pointer
-+ bcc pulsaveandex@ branch if higher
- * Here, we've determined the module we're validating is newer than the one that already
- * exists in memory.
--                    ldd       M$Size,x  ; else get module size from module header
--                    addd      #$00FF    ; round up to next page
--                    tfr       a,b       ; divide by 256 (# of pages to clear)
--                    clra                ; D = rounded up value of module's memory footprint (number of bits to clear)
--                    tfr       d,y       ; transfer to Y
--                    ldb       MD$MPtr,u ; put high byte of module address into B (D = first bit in allocation table to clear)
--                    ldx       <D.FMBM   ; get pointer to free memory bitmap
--                    os9       F$DelBit  ; delete from allocation table (D = first bit to clear, X = bitmap address, Y = # of bits to clear)
--                    clr       MD$Link,u ; clear link count in module directory entry
--pulsaveandex@       puls      y,x       ; restore X and Y
--saveandex@          stx       MD$MPtr,u ; save newly validated module into module directory entry of deallocated modulke
--                    clrb                ; clear carry and error code
--ex@                 rts                 ; return
--isempty@            leay      MD$MPtr,u ; get module pointer in Y
--                    bne       saveandex@ ; branch if module exists
--                    ldb       #E$DirFul ; module directory is full
--errex@              coma                ; set carry
--                    rts                 ; return to caller
-+ ldd M$Size,x else get module size from module header
-+ addd #$00FF round up to next page
-+ tfr a,b divide by 256 (# of pages to clear)
-+ clra D = rounded up value of module's memory footprint (number of bits to clear)
-+ tfr d,y transfer to Y
-+ ldb MD$MPtr,u put high byte of module address into B (D = first bit in allocation table to clear)
-+ ldx <D.FMBM get pointer to free memory bitmap
-+ os9 F$DelBit delete from allocation table (D = first bit to clear, X = bitmap address, Y = # of bits to clear)
-+ clr MD$Link,u clear link count in module directory entry
-+pulsaveandex@ puls y,x restore X and Y
-+saveandex@ stx MD$MPtr,u save newly validated module into module directory entry of deallocated modulke
-+ clrb clear carry and error code
-+ex@ rts return
-+isempty@ leay MD$MPtr,u get module pointer in Y
-+ bne saveandex@ branch if module exists
-+ ldb #E$DirFul module directory is full
-+errex@ coma set carry
-+ rts return to caller
- 
- * Check module header and CRC
- *
- * Entry: X = Address of potential module.
--ChkMHCRC            ldd       ,x        ; get two bytes at start of potential module
--                    cmpd      #M$ID12   ; are these module sync bytes?
--                    bne       errex@    ; nope, not a module here
--                    leay      M$Parity,x ; else point Y to the parity byte in the module
--                    bsr       ChkMHPar  ; check header parity
--                    bcc       Chk4CRC   ; branch if ok
--errex@              comb                ; else set carry
--                    ldb       #E$BMID   ; and load B with error
--                    rts                 ; return to caller
-+ChkMHCRC ldd ,x get two bytes at start of potential module
-+ cmpd #M$ID12 are these module sync bytes?
-+ bne errex@ nope, not a module here
-+ ifne _FF_MODCHECK
-+ leay M$Parity,x else point Y to the parity byte in the module
-+ bsr ChkMHPar check header parity
-+ bcc Chk4CRC branch if ok
-+ else
-+ rts if _FF_MODCHECK is true, just return
-+ endc
-+errex@ comb else set carry
-+ ldb #E$BMID and load B with error
-+ rts return to caller
- 
-+ ifne _FF_MODCHECK
- * Check module CRC
- *
- * Entry: X = Address of module to check.
- Chk4CRC
--                    lda       <D.CRC    ; is CRC checking on?
--                    bne       DoCRCCk   ; branch if so
--                    clrb                ; else clear carry
--                    rts                 ; return to caller
-+ lda <D.CRC is CRC checking on?
-+ bne DoCRCCk branch if so
-+ clrb else clear carry
-+ rts return to caller
- 
- * Check if module CRC checking is on
- *
- * Entry: X = Address of module to check.
--DoCRCCk             pshs      x         ; save off module address onto stack
--                    ldy       M$Size,x  ; get module size in module header
--                    bsr       ChkMCRC   ; check module CRC
--                    puls      pc,x      ; restore pc,x from the stack
-+DoCRCCk pshs x save off module address onto stack
-+ ldy M$Size,x get module size in module header
-+ bsr ChkMCRC check module CRC
-+ puls pc,x
- 
- * Check module header parity
- *
- * Entry: X = Module header to check.
- *        Y = Pointer to parity byte.
--ChkMHPar            pshs      y,x       ; save off X and Y
--_stk1X@             set       0         ; define assembler symbol
--_stk1Y@             set       2         ; define assembler symbol
--                    clra                ; A = 0
--loop@               eora      ,x+       ; xOR with
--                    cmpx      _stk1Y@,s ; compare to address of parity byte
--                    bls       loop@     ; branch if not there yet
--                    cmpa      #$FF      ; parity check done... is it correct?
--                    puls      pc,y,x    ; restore regs and return
-+ChkMHPar pshs y,x save off X and Y
-+_stk1X@ set 0
-+_stk1Y@ set 2
-+ clra A = 0
-+loop@ eora ,x+ XOR with
-+ cmpx _stk1Y@,s compare to address of parity byte
-+ bls loop@ branch if not there yet
-+ cmpa #$FF parity check done... is it correct?
-+ puls pc,y,x restore regs and return
- 
- * Check module CRC
- *
- * Entry: X = Address of potential module.
- *        Y = Size of module.
--ChkMCRC             ldd       #$FFFF    ; initialize D to $FFFF
--                    pshs      b,a       ; save off stack
--                    pshs      b,a       ; 32 bits
--                    leau      1,s       ; advance one byte (24 byte CRC)
--loop@               lda       ,x+       ; get next byte of module
--                    bsr       CRCAlgo   ; perform algorithm
--                    leay      -1,y      ; decrement Y (size of module)
--                    bne       loop@     ; continue if not at end
--                    clr       -1,u      ; clear first 8 bits of 32 bits
--                    lda       ,u        ; get first byte of CRC
--                    cmpa      #CRCCon1  ; is it what we expect?
--                    bne       err@      ; branch if not
--                    ldd       1,u       ; get next two bytes of CRC
--                    cmpd      #CRCCon23 ; is it what we expect?
--                    beq       ex@       ; branch if what we expect
--err@                comb                ; ...else set carry
--                    ldb       #E$BMCRC  ; load B with error
--ex@                 puls      pc,y,x    ; return to caller
--
--                  ELSE
--
--FVModul             pshs      u         ; preserve register stack pointer
--                    ldx       R$X,u     ; get block offset
--                    ldy       R$D,u     ; get DAT image pointer
--                    bsr       FVmodulBlkOffDAT ; validate it
--                    ldx       ,s        ; get register stack pointer
--                    stu       R$U,x     ; save address of module directory entry
--                    puls      u,pc      ; restore & return
--
--* Validate module - shortcut for calls within OS9p1 go here (ex. OS9Boot)
--* Entry: X=Module block offset
--*        Y=Module DAT image pointer
--FVmodulBlkOffDAT    pshs      x,y       ; save block offset & DAT Image ptr
--                    lbsr      FVmodulBlkOffDAT2 ; go check module ID & header parity
--                    bcs       FVmodulTarget ; error, exit
--                    ldd       #M$Type   ; get offset to module type
--                    lbsr      FLdTarget ; go get 2 bytes (module type)
--                    andb      #LangMask ; just keep language mask
--                    pshs      d         ; preserve ??? & language
--                    ldd       #M$Name   ; get offset to module name
--                    lbsr      FLdTarget ; go get 2 bytes (offset)
--                    leax      d,x       ; point X to module name
--                    puls      a         ; restore type/language
--                    lbsr      FFmodulJoin ; find module in module directory
--                    puls      a         ; restore a from the stack
--                    bcs       FVmodulTarget2 ; branch if carry is set to FVmodulTarget2
--                    andb      #$0F      ; mask B with #$0F
--                  IFNE    H6309   ; begin conditional assembly for H6309
--                    subr      a,b
--                  ELSE
--                    pshs      a         ; save a on the stack
--                    subb      ,s+       ; subtract ,s+ from B
--                  ENDC
--                    blo       FVmodulTarget2 ; if wrapped, skip ahead
--                    ldb       #E$KwnMod ; load B from #E$KwnMod
--                    fcb       $8C       ; skip 2 bytes
--FVmodulDirful       ldb       #E$DirFul ; load B from #E$DirFul
--FVmodulCarry        orcc      #Carry    ; set condition-code bits using #Carry
--FVmodulTarget       puls      x,y,pc    ; restore x,y,pc from the stack
--
--FVmodulTarget2      ldx       ,s        ; load X from ,s
--                  IFNE    H6309   ; begin conditional assembly for H6309
--                    bsr       FVmodulTarget8 ; call local routine FVmodulTarget8
--                  ELSE
--                    lbsr      FVmodulTarget8 ; call local routine FVmodulTarget8
--                  ENDC
--                    bcs       FVmodulDirful ; branch if carry is set to FVmodulDirful
--                    sty       ,u        ; store Y at ,u
--                    stx       MD$MPtr,u ; store X at MD$MPtr,u
--                  IFNE    H6309   ; begin conditional assembly for H6309
--                    clrd                ; update processor state
--                  ELSE
--                    clra                ; clear A
--                    clrb                ; clear B
--                  ENDC
--                    std       MD$Link,u ; store D at MD$Link,u
--                    ldd       #M$Size   ; get offset to size of module
--                    lbsr      FLdTarget ; get it
--                  IFNE    H6309   ; begin conditional assembly for H6309
--                    addr      x,d       ; add it to module ptr
--                  ELSE
--                    pshs      x         ; save x on the stack
--                    addd      ,s++      ; add ,s++ to D
--                  ENDC
--                    std       MD$MBSiz,u ; store D at MD$MBSiz,u
--                    ldy       [MD$MPDAT,u] ; get pointer to module DAT
--                    ldx       <D.ModDir ; get module directory pointer
--                    pshs      u         ; save module pointer
--                    fcb       $8C       ; skip 2 bytes
--
--FVmodulEntry        leax      MD$ESize,x ; move to next entry
--FVmodulDmodend      cmpx      <D.ModEnd ; compare X with <D.ModEnd
--                    bcc       FVmodulTarget3 ; branch if carry is clear to FVmodulTarget3
--                    cmpx      ,s        ; match?
--                    beq       FVmodulEntry ; no, keep looking
--                    cmpy      [MD$MPDAT,x] ; dAT match?
--                    bne       FVmodulEntry ; no, keep looking
--                    bsr       FVmodulTarget5 ; call local routine FVmodulTarget5
--
--FVmodulTarget3      puls      u         ; restore u from the stack
--                    ldx       <D.BlkMap ; get ptr to block map
--                    ldd       MD$MBSiz,u ; get size of module
--                    addd      #$1FFF    ; round up to nearest 8K block
--                    lsra                ; divide by 32
--                    lsra                ; shift or rotate and update condition codes
--                    lsra                ; shift or rotate and update condition codes
--                    lsra                ; shift or rotate and update condition codes
--                    lsra                ; shift or rotate and update condition codes
--                    ldy       MD$MPDAT,u ; load Y from MD$MPDAT,u
--
--                  IFNE    H6309   ; begin conditional assembly for H6309
--                    tfr       a,e       ; transfer register value a,e
--FVmodulTarget4      ldd       ,y++      ; load D from ,y++
--                    oim       #ModBlock,d,x
--                    dece                ; update processor state
--                  ELSE
--FVmodulTarget4      pshs      a,x       ; save block size, blkmap
--                    ldd       ,y++      ; D = image block #
--                    leax      d,x       ; X = blkmap ptr
--                    ldb       ,x        ; get block marker
--                    orb       #ModBlock ; set module in block
--                    stb       ,x        ; marker
--                    puls      x,a       ; restore x,a from the stack
--                    deca                ; count--
--                  ENDC
--                    bne       FVmodulTarget4 ; no, keep going
--                    clrb                ; clear carry
--                    puls      x,y,pc    ; return
--
--FVmodulTarget5      pshs      d,x,y,u   ; save d,x,y,u on the stack
--* LCB - 6809 - this can be slightly sped up by swapping roles
--                    ldx       ,x        ; load X from ,x
--                  IFNE    H6309   ; begin conditional assembly for H6309
--                    tfr       x,w       ; dupe to faster index register
--                    clrd                ; update processor state
--FVmodulTarget6      ldy       ,w        ; load Y from ,w
--                    beq       FVmodulTarget7 ; branch if zero is set to FVmodulTarget7
--                    std       ,w++      ; store D at ,w++
--                    bra       FVmodulTarget6 ; branch unconditionally to FVmodulTarget6
--FVmodulTarget7      ldy       2,s       ; load Y from 2,s
--                  ELSE
--                    pshs      x         ; save x on the stack
--                    clra                ; D=0000
--                    clrb                ; clear B
--FVmodulTarget6      ldy       ,x        ; last entry?
--                    beq       FVmodulTarget7 ; ..yes
--                    std       ,x++      ; no, clear
--                    bra       FVmodulTarget6 ; and loop
--
--* Entry: U=Ptr to current entry in module directory
--*        Y=Ptr to entry in module directory we are comparing to
--FVmodulTarget7      puls      x         ; restore x from the stack
--                    ldy       2,s       ; get ptr to module dir entry we are comparing with
--                  ENDC
--*
--                    ldu       MD$MPDAT,u ; get DAT img ptr for module
--                    puls      d         ; restore d from the stack
--FVmodulSameDATImg   cmpx      MD$MPDAT,y ; same as DAT img ptr for other module?
--                    bne       FVmodulBumpModDir ; no, check next one
--                    stu       MD$MPDAT,y ; match; save current entry ptr here
--                    cmpd      MD$MBSiz,y ; >memory block size already here?
--* 6809/6309 LCB - couldn't we change next 2 lines to blo L051B
--                    bhs       FVmodulMbsiz ; yes, use new one
--                    ldd       MD$MBSiz,y ; no, get original and use that size instead
--FVmodulMbsiz        std       MD$MBSiz,y ; store D at MD$MBSiz,y
--FVmodulBumpModDir   leay      MD$ESize,y ; bump ptr to next module dir entry
--                    cmpy      <D.ModEnd ; are we at end of module dir?
--                    bne       FVmodulSameDATImg ; no,keep checking
--                    puls      x,y,u,pc  ; restore x,y,u,pc from the stack
--
--* Exit: B=MMU block # of some sort
--FVmodulTarget8      pshs      x,y,u     ; save x,y,u on the stack
--                    ldd       #M$Size   ; offset to module size
--                    lbsr      FLdTarget ; go get module size
--                    addd      ,s        ; add to value
--                    addd      #$1FFF    ; calc MMU block #
--                    lsra                ; shift or rotate and update condition codes
--                    lsra                ; shift or rotate and update condition codes
--                    lsra                ; shift or rotate and update condition codes
--                    lsra                ; shift or rotate and update condition codes
--                    lsra                ; shift or rotate and update condition codes
--                    tfr       a,b       ; move block # to B
--                    pshs      b         ; save it as well
--                    comb                ; one byte shorter than incb;lslb;negb
--                    lslb                ; (D=-B is what we are doing)
--                    sex                 ; sign-extend B into A
--                    bsr       FVmodulEndModDir ; call local routine FVmodulEndModDir
--                    bcc       FVmodulTarget9 ; branch if carry is clear to FVmodulTarget9
--                    os9       F$GCMDir  ; get rid of empty slots in module directory
--                  IFNE    H6309   ; begin conditional assembly for H6309
--                    tfr       0,u       ; transfer register value 0,u
--                  ELSE
--                    ldu       #$0000    ; load U from #$0000
--                  ENDC
--                    stu       $05,s     ; save $0000 so U is 0 in puls below
--                    bsr       FVmodulEndModDir ; call local routine FVmodulEndModDir
--FVmodulTarget9      puls      b,x,y,u,pc ; restore b,x,y,u,pc from the stack
--
--* Entry: D=negative offset from end of module Dir DAT Img)
--FVmodulEndModDir    ldx       <D.ModDAT ; get end ptr of Module Dir DAT image
--                    leax      d,x       ; add our negative offset
--                    cmpx      <D.ModEnd ; is that past the end of the module directory?
--                    blo       S.Poll    ; no, skip ahead
--                    ldu       7,s       ; yes, get U from stack (0 means we compacted mod dir)
--                    bne       FVmodulNewModDir ; not compacted, skip ahead
--                    ldy       <D.ModEnd ; get ptr to end of module directory
--                    leay      MD$ESize,y ; bump up by 1 entry
--                  IFNE    H6309   ; begin conditional assembly for H6309
--                    cmpr      x,y       Offset we did past new entry?
--                  ELSE
--                    pshs      x         ; offset we did past new entry?
--                    cmpy      ,s++      ; compare Y with ,s++
--                  ENDC
--                    bhi       S.Poll    ; yes, skip ahead
--                    sty       <D.ModEnd ; no, save new module directory end ptr
--                    leay      -MD$ESize,y ; bump ptr back on entry
--                    sty       $07,s     ; save that as new U on exit
--FVmodulNewModDir    stx       <D.ModDAT ; save new Module Dir DAT image end ptr
--                  IFNE    H6309   ; begin conditional assembly for H6309
--                    ldd       $05,s     ; get source ptr
--                    stx       $05,s     ; store X at $05,s
--                    ldf       2,s
--                    clre                ; update processor state
--                    rolw                ; update processor state
--                    tfm       d+,x+
--                    stw       ,x        Save 0
--                  ELSE
--                    ldy       5,s       ; load Y from 5,s
--                    ldb       2,s       ; B=block count
--                    stx       5,s       ; return dir datimg ptr
--FVmodulImages       ldu       ,y++      ; copy images
--                    stu       ,x++      ; to new mod dat entry
--                    decb                ; decrement B
--                    bne       FVmodulImages ; branch if zero is clear to FVmodulImages
--* 6809/6309 LCB - stb ,x - same size, faster (4 vs 6). Still need CLR
--*  for clr 1,x to make sure carry is cleared
--                    stb       ,x        ; zero flag
--                    clr       1,x       ; & clear carry
--                  ENDC
--                    rts                 ; return to caller
--
--* Default interrupt handling routine on first booting OS9p1
--S.Poll              orcc      #Carry    ; set condition-code bits using #Carry
--                    rts                 ; return to caller
--
--* Check module ID & calculate module header parity & CRC
--* Entry: X=Block offset of module
--*        Y=DAT image pointer of module
--FVmodulBlkOffDAT2   pshs      x,y       ; save block offset & DAT pointer
--                  IFNE    H6309   ; begin conditional assembly for H6309
--                    clrd                ; m$ID offset
--                  ELSE
--                    clra                ; m$ID offset
--                    clrb                ; clear B
--                  ENDC
--                    lbsr      FLdTarget ; get module ID
--                    cmpd      #M$ID12   ; legal module?
--                    beq       FVmodulStartLctnHdr ; yes, calculate header parity
--                    ldb       #E$BMID   ; get bad module ID error
--                    bra       FVmodulUpError ; return error
--* Calculate module header parity
--FVmodulStartLctnHdr leax      2,x       ; point to start location of header calc
--                    lbsr      AdjBlk0   ; adjust it for block 0
--                  IFNE    H6309   ; begin conditional assembly for H6309
--                    ldw       #($4A*256+M$Revs) Get initial value & count (7 bytes of header)
--FVmodulModule       lbsr      LDAXY     ; get a byte from module
--                    eorr      a,e       add it into running parity
--                    decf                ; done full header?
--                    bne       FVmodulModule ; no, keep going
--                    ince                ; valid parity?
--                  ELSE
--                    leas      -1,s      ; make var
--                    ldd       #($4A*256+M$Revs) ; get initial value & count (7 bytes of header)
--FVmodulModule       sta       ,s        ; save crc
--                    lbsr      LDAXY     ; get next byte
--                    eora      ,s        ; do crc
--                    decb                ; more?
--                    bne       FVmodulModule ; ..loop
--                    leas      1,s       ; drop var
--                    inca                ; $FF+1 = 00
--                  ENDC
--                    beq       FVmodulModuleDAT ; yes, skip ahead
--                    ldb       #E$BMHP   ; get module header parity error
--                    bra       FVmodulUpError ; return with error
--
--FVmodulModuleDAT    puls      x,y       ; restore module pointer & DAT pointer
--* this checks if the module CRC checking is on or off
--                    lda       <D.CRC    ; is CRC checking on?
--                    bne       FVmodulOffModSize ; yes - go check it
--                  IFNE    H6309   ; begin conditional assembly for H6309
--                    clrd                ; no, clear out
--                  ELSE
--                    clra                ; clear A
--                    clrb                ; clear B
--                  ENDC
--                    rts                 ; and return
--
--* Begin checking Module CRC
--* Entry: X=Module pointer
--*        Y=DAT image pointer of module
--FVmodulOffModSize   ldd       #M$Size   ; get offset to module size
--                    lbsr      FLdTarget ; get module size
--                  IFNE    H6309   ; begin conditional assembly for H6309
--                    tfr       d,w       ; move length to W
--                    pshs      y,x       ; preserve [X]=Buffer pointer,[Y]=DAT pointer
--                  ELSE
--                    pshs      y,x,d     ; preserve [X]=Buffer pointer,[Y]=DAT pointer
--                  ENDC
--                    ldd       #$FFFF    ; initial CRC value of $FFFFFF
--                    pshs      d         ; set up local 24 bit variable
--                    pshs      b         ; save b on the stack
--                    lbsr      AdjBlk0   ; adjust module pointer into block 0 for mapping
--                    leau      ,s        ; point to CRC accumulator
--* Loop: W=# bytes left to use in CRC calc
--FVmodulJoin         equ       *         ; define assembler symbol
--                  IFNE    H6309   ; begin conditional assembly for H6309
--                    tstf                ; on 256 byte boundary?
--                  ELSE
--                    tstb                ; test B and update condition codes
--                  ENDC
--                    bne       FVmodulModule2 ; no, keep going
--                    pshs      x         ; give up some time to system
--                    ldx       #1        ; load X from #1
--                    os9       F$Sleep   ; call OS-9 service F$Sleep
--                    puls      x         ; restore module pointer
--FVmodulModule2      lbsr      LDAXY     ; get a byte from module into A
--                    bsr       CRCCalc   ; add it to running CRC
--                  IFNE    H6309   ; begin conditional assembly for H6309
--                    decw                ; dec # bytes left to calculate CRC with
--                  ELSE
--                    ldd       3,s       ; load D from 3,s
--                    subd      #$0001    ; subtract #$0001 from D
--                    std       3,s       ; store D at 3,s
--                  ENDC
--                    bne       FVmodulJoin ; still more, continue
--                  IFNE    H6309   ; begin conditional assembly for H6309
--                    puls      b,x       ; yes, restore CRC
--                  ELSE
--                    puls      b,x,y     ; yes, restore CRC
--                  ENDC
--                    cmpb      #CRCCon1  ; cRC MSB match constant?
--                    bne       FVmodulBadModCRC ; no, exit with error
--                    cmpx      #CRCCon23 ; lSW match constant?
--                    beq       FVmodulExit ; yes, skip ahead
--FVmodulBadModCRC    ldb       #E$BMCRC  ; bad Module CRC error
--FVmodulUpError      orcc      #Carry    ; set up for error
--FVmodulExit         puls      x,y,pc    ; exit
--
--* Calculate 24 bit CRC
--* Entry: A=Byte to add to CRC
--*        U=Pointer to 24 bit CRC accumulator
--*
--* Future reference note: Do not use W unless preserved, contains module
--*                        byte counts from routines that come here!!
--CRCCalc             eora      ,u        ; exclusive-OR A with ,u
--                    pshs      a         ; save a on the stack
--                    ldd       1,u       ; load D from 1,u
--                    std       ,u        ; store D at ,u
--                    clra                ; clear A
--                    ldb       ,s        ; load B from ,s
--                  IFNE    H6309   ; begin conditional assembly for H6309
--                    lsld                ; shift or rotate and update condition codes
--                  ELSE
--                    aslb                ; update processor state
--                    rola                ; shift or rotate and update condition codes
--                  ENDC
--                    eora      1,u       ; exclusive-OR A with 1,u
--                    std       1,u       ; store D at 1,u
--                    clrb                ; clear B
--                    lda       ,s        ; load A from ,s
--                  IFNE    H6309   ; begin conditional assembly for H6309
--                    lsrd                ; shift or rotate and update condition codes
--                    lsrd                ; shift or rotate and update condition codes
--                    eord      1,u
--                  ELSE
--                    lsra                ; shift or rotate and update condition codes
--                    rorb                ; shift or rotate and update condition codes
--                    lsra                ; shift or rotate and update condition codes
--                    rorb                ; shift or rotate and update condition codes
--                    eora      1,u       ; exclusive-OR A with 1,u
--                    eorb      2,u       ; exclusive-OR B with 2,u
--                  ENDC
--                    std       1,u       ; store D at 1,u
--                    lda       ,s        ; load A from ,s
--                    lsla                ; shift or rotate and update condition codes
--                    eora      ,s        ; exclusive-OR A with ,s
--                    sta       ,s        ; store A at ,s
--                    lsla                ; shift or rotate and update condition codes
--                    lsla                ; shift or rotate and update condition codes
--                    eora      ,s        ; exclusive-OR A with ,s
--                    sta       ,s        ; store A at ,s
--                    lsla                ; shift or rotate and update condition codes
--                    lsla                ; shift or rotate and update condition codes
--                    lsla                ; shift or rotate and update condition codes
--                    lsla                ; shift or rotate and update condition codes
--                    eora      ,s+       ; exclusive-OR A with ,s+
--                    bpl       FVmodulReturn ; branch if negative is clear to FVmodulReturn
--                  IFNE    H6309   ; begin conditional assembly for H6309
--                    eim       #$80,,u
--                    eim       #$21,2,u
--                  ELSE
--                    ldd       #$8021    ; load D from #$8021
--                    eora      ,u        ; exclusive-OR A with ,u
--                    sta       ,u        ; store A at ,u
--                    eorb      2,u       ; exclusive-OR B with 2,u
--                    stb       2,u       ; store B at 2,u
--                  ENDC
--FVmodulReturn       rts                 ; return to caller
--
--**************************************************
--* System Call: F$CRC
--*
--* Function: Compute CRC
--*
--* Input:  X = Address to start computation
--*         Y = Byte count
--*         U = Address of 3 byte CRC accumulator
--*
--* Output: CRC accumulator is updated
--*
--* Error:  CC = C bit set; B = error code
--*
--FCRC                ldd       R$Y,u     ; get # bytes to do
--                    beq       FVmodulError ; nothing there, so nothing to do, return
--                    ldx       R$X,u     ; get caller's buffer pointer
--                    pshs      d,x       ; save # bytes & buffer pointer
--                    leas      -3,s      ; allocate a 3 byte buffer
--                    ldx       <D.Proc   ; point to current process descriptor
--                    lda       P$Task,x  ; get its task number
--                    ldb       <D.SysTsk ; get the system task number
--                    ldx       R$U,u     ; point to user's 24 bit CRC accumulator
--                    ldy       #3        ; number of bytes to move
--                    leau      ,s        ; point to our temp buffer
--                    pshs      d,x,y     ; save [D]=task #'s,[X]=Buff,[Y]=3
--                    lbsr      FMoveTarget ; move CRC accumulator to temp buffer
--                    ldx       <D.Proc   ; point to current process descriptor
--                    leay      <P$DATImg,x ; point to its DAT image
--                    ldx       11,s      ; restore the buffer pointer
--                    lbsr      AdjBlk0   ; make callers buffer visible
--                  IFNE    H6309   ; begin conditional assembly for H6309
--                    ldw       9,s       get byte count
--                  ENDC
--FVmodulBuffer       lbsr      LDAXY     ; get byte from callers buffer
--                    bsr       CRCCalc   ; add it to CRC
--                  IFNE    H6309   ; begin conditional assembly for H6309
--                    decw                ; done?
--                  ELSE
--                    ldd       9,s       ; load D from 9,s
--                    subd      #$0001    ; subtract #$0001 from D
--                    std       9,s       ; store D at 9,s
--                  ENDC
--                    bne       FVmodulBuffer ; no, keep going
--                    puls      d,x,y     ; restore pointers
--                    exg       a,b       ; swap around the task numbers
--                    exg       x,u       ; and the pointers
--                    lbsr      FMoveTarget ; move accumulator back to user
--                    leas      7,s       ; clean up stack
--FVmodulError        clrb                ; no error
--                    rts                 ; return to caller
--
--                  ENDC
-+ChkMCRC ldd #$FFFF initialize D to $FFFF
-+ pshs b,a save off stack
-+ pshs b,a 32 bits
-+ leau 1,s advance one byte (24 byte CRC)
-+loop@ lda ,x+ get next byte of module
-+ bsr CRCAlgo perform algorithm
-+ leay -1,y decrement Y (size of module)
-+ bne loop@ continue if not at end
-+ clr -1,u clear first 8 bits of 32 bits
-+ lda ,u get first byte of CRC
-+ cmpa #CRCCon1 is it what we expect?
-+ bne err@ branch if not
-+ ldd 1,u get next two bytes of CRC
-+ cmpd #CRCCon23 is it what we expect?
-+ beq ex@ branch if what we expect
-+err@ comb ...else set carry
-+ ldb #E$BMCRC load B with error
-+ex@ puls pc,y,x return to caller
-+ endc
 diff --git a/source/kernel/fwait.asm b/source/kernel/fwait.asm
 index 3581188..3c111fc 100644
 --- a/source/kernel/fwait.asm
@@ -4792,96 +3303,43 @@ index 3581188..3c111fc 100644
 + stb P$SID,y save and store it in the next sibling
 + os9 F$Ret64 return the process descriptor to the free pool
 + puls pc,u,y,x,a pull all registers and return to the caller
-diff --git a/source/kernel/iocall.asm b/source/kernel/iocall.asm
-index 21f2241..9e60b25 100644
---- a/source/kernel/iocall.asm
-+++ b/source/kernel/iocall.asm
-@@ -1,20 +1,38 @@
--IOMgr               fcs       /IOMAN/
-+*******************************************************************************
-+* TurbOS
-+*******************************************************************************
-+* See LICENSE.txt for licensing information.
-+*******************************************************************************
-+*
-+* Edt/Rev  YYYY/MM/DD  Modified by
-+* Comment
-+* ----------------------------------------------------------------------------
-+*          2023/08/11  Boisy Pitre
-+* Initial creation.
-+*
- 
--IOCall
--                    pshs      u,y,x,b,a ; save off registers
--                    ldu       <D.Init   ; get pointer to the init module
--                    bsr       link@     ; link to IOMan
--                    bcc       callit@   ; jump into IOMan if it exists
--                    bsr       LoadBoot  ; else attempt to load the bootfile
--                    bcs       ex@       ; problem booting... return w/ error
--                    bsr       link@     ; ok, NOW link to IOMan
--                    bcs       ex@       ; still a problem...
--callit@             jsr       ,y        ; call into IOMan
--                    puls      u,y,x,b,a ; restore registers
--                    ldx       -2,y      ; get the location to jump
--                    jmp       ,x        ; and jump
--ex@                 puls      pc,u,y,x,b,a ; else restore registers and return
--link@               leax      IOMgr,pcr ; point to the IO manager module name
--                    lda       #Systm+Objct ; it should be a system/object module
--                    os9       F$Link    ; link to it
--                    rts                 ; return if there was an error
-+IOCall 
-+ ifne _FF_UNIFIED_IO
-+ pshs u,y,x,b,a save off registers
-+ ldu <D.Init get pointer to the init module
-+ bsr link@ link to IOMan
-+ ifne _FF_BOOTING
-+ bcc callit@ jump into IOMan if it exists
-+ bsr LoadBoot else attempt to load the bootfile
-+ bcs ex@ problem booting... return w/ error
-+ bsr link@ ok, NOW link to IOMan
-+ endc 
-+ bcs ex@ still a problem...
-+callit@ jsr ,y call into IOMan
-+ puls u,y,x,b,a restore registers
-+ ldx -2,y get the location to jump
-+ jmp ,x and jump
-+ex@ puls pc,u,y,x,b,a else restore registers and return
-+link@ leax IOMgr,pcr point to the IO manager module name
-+ lda #Systm+Objct it should be a system/object module
-+ os9 F$Link link to it
-+ rts return if there was an error
-+IOMgr fcs /IOMAN/
-+ else 
-+ rts return to caller (do nothing) 
-+ endc 
 diff --git a/source/kernel/kernel.asm b/source/kernel/kernel.asm
-index c6ef534..f0d322d 100644
 --- a/source/kernel/kernel.asm
 +++ b/source/kernel/kernel.asm
-@@ -1,5 +1,17 @@
+@@ -1,657 +1,703 @@
 -********************************************************************
 -* Krn - NitrOS-9 Level 1 Kernel
-+*******************************************************************************
-+* TurbOS
-+*******************************************************************************
-+* See LICENSE.txt for licensing information.
-+*******************************************************************************
-+*
-+* Edt/Rev  YYYY/MM/DD  Modified by
-+* Comment
-+* ----------------------------------------------------------------------------
-+*          2023/08/11  Boisy Pitre
-+* Initial creation.
-+*
-+*******************************************************************************
-+* NOTES:
- *
- * This is how the memory map looks after the kernel has initialized:
- *
-@@ -31,67 +43,32 @@
- *  $0400-$04FF  |           System Stack           |
- *               |                                  |
- *     $0500---->|==================================|
+-*
+-* This is how the memory map looks after the kernel has initialized:
+-*
+-*     $0000----> ==================================
+-*               |                                  |
+-*               |                                  |
+-*  $0020-$0111  |  System Globals (D.FMBM-D.XNMI)  |
+-*               |                                  |
+-*               |                                  |
+-*     $0200---->|==================================|
+-*               |        Free Memory Bitmap        |
+-*  $0200-$021F  |     (1 bit = 256 byte page)      |
+-*               |----------------------------------|
+-*  $0220-$0221  |      IOMan I/O Call Pointer      |
+-*               |----------------------------------|
+-*               |      System Dispatch Table       |
+-*  $0222-$0291  |     (Room for 56 addresses)      |
+-*               |----------------------------------|
+-*  $0292-$02FF  |       User Dispatch Table        |
+-*               |     (Room for 56 addresses)      |
+-*     $0300---->|==================================|
+-*               |                                  |
+-*               |                                  |
+-*  $0300-$03FF  |     Module Directory Entries     |
+-*               |      (Room for 64 entries)       |
+-*               |                                  |
+-*     $0400---->|==================================|
+-*               |                                  |
+-*  $0400-$04FF  |           System Stack           |
+-*               |                                  |
+-*     $0500---->|==================================|
 -*               |                                  |
 -*               |                                  |
 -*               |                                  |
@@ -4907,44 +3365,34 @@ index c6ef534..f0d322d 100644
 -*  15r1    2003/12/09  Boisy G. Pitre
 -* Kernel no longer scans for modules in I/O space.  Also, F$PrsNam now
 -* allows _ and 0-9 as first chars of a filename.
- *
+-*
 -*  15r1    2004/05/23  Boisy G. Pitre
 -* Renamed to 'krn'
 -*
 -*  16      2004/05/23  Boisy G. Pitre
 -* Added changes for Atari port
- 
+-
 -                    nam       krn
 -                    ttl       NitrOS-9 Level 1 Kernel
-+ nam Kernel
-+ ttl TurbOS Kernel
- 
+-
 -                    use       defsfile  ; include source file defsfile
-+ use defs.d
- 
+-                    use       features.d
+-
 -tylg                set       Systm+Objct ; define assembler symbol
 -atrv                set       ReEnt+rev ; define assembler symbol
 -rev                 set       $00       ; define assembler symbol
 -edition             set       16        ; define assembler symbol
-+tylg set Systm+Objct
-+atrv set ReEnt+rev
-+rev set $00
-+edition set 1
- 
+-
 -ModTop              mod       eom,name,tylg,atrv,OS9Cold,size ; define OS-9 module header
-+ModTop mod eom,name,tylg,atrv,ColdStart,size
- 
+-
 -size                equ       .         ; define assembler symbol
-+size equ .
- 
+-
 -name                fcs       /Krn/
 -                    fcb       edition   ; define byte value(s) edition
-+name fcs /kernel/
-+ fcb edition
- 
- **************************
- * Kernel entry point
- *
+-
+-**************************
+-* Kernel entry point
+-*
 -* Entry (Wildbits Port):
 -*     X = The starting address of the bootfile.
 -*     Y = The size of the bootfile in bytes.
@@ -4954,17 +3402,14 @@ index c6ef534..f0d322d 100644
 -                  IFNE    wildbits ; begin conditional assembly for wildbits
 -*[[[ Wildbits port
 -* In RAM mode, the Wildbits memory map looks like this:
-+ColdStart equ *
-+ ifne f256
-+*>>>>>>>>>> F256 PORT
-+* In RAM mode, the F256 memory map looks like this:
- *    $0000-$1FFF - RAM at $000000-$001FFF
- *    $2000-$3FFF - RAM at $002000-$003FFF
- *    $4000-$5FFF - RAM at $004000-$005FFF
-@@ -100,199 +77,154 @@ OS9Cold             equ       *         ; define assembler symbol
- *    $A000-$BFFF - RAM at $00A000-$00BFFF
- *    $C000-$DFFF - RAM at $00C000-$00DFFF
- *    $E000-$FFFF - RAM at $00E000-$00FFFF
+-*    $0000-$1FFF - RAM at $000000-$001FFF
+-*    $2000-$3FFF - RAM at $002000-$003FFF
+-*    $4000-$5FFF - RAM at $004000-$005FFF
+-*    $6000-$7FFF - RAM at $006000-$007FFF
+-*    $8000-$9FFF - RAM at $008000-$009FFF
+-*    $A000-$BFFF - RAM at $00A000-$00BFFF
+-*    $C000-$DFFF - RAM at $00C000-$00DFFF
+-*    $E000-$FFFF - RAM at $00E000-$00FFFF
 -* Wildbits-specific initialization to get the Wildbits to a sane state.
 -                    pshs      x,y       ; save the bootfile pointer and size
 -                    lda       #$FF      ; A = $FF
@@ -4984,29 +3429,8 @@ index c6ef534..f0d322d 100644
 -loop@               std       ,x++      ; save off at X and increment
 -                    leay      -2,y      ; decrement counter
 -                    bne       loop@     ; continue if not zero
-+* F256-specific initialization to get the F256 to a sane state.
-+ orcc #IntMasks mask interrupts
-+ clra clear A
-+ tfr a,dp transfer to DP
-+ clr MMU_MEM_CTRL set active LUT to set 0
-+ lda #$FF set all bits in A
-+ sta INT_MASK_0 mask all set 0 interrupts
-+ sta INT_MASK_1 mask all set 1 interrupts
-+ sta INT_PENDING_0 clear any pending set 0 interrupts
-+ sta INT_PENDING_1 clear any pending set 0 interrupts
-+*<<<<<<<<<< F256 PORT
-+ endc
-+
-+* Clear out system global variables from $D.FMBM-$0400.
-+ ldx #D.FMBM start clearing memory at D.FMBM
-+ ldy #$400-D.FMBM get the number of bytes to clear
-+ clra clear A
-+ clrb clear B (D now $0000)
-+loop@ std ,x++ save off at X and increment
-+ leay -2,y decrement counter
-+ bne loop@ continue if not zero
- 
- * Set up the system globals area.
+-
+-* Set up the system globals area.
 -                    inca                ; D = $100
 -                    inca                ; D = $200
 -                    std       <D.FMBM   ; $200 = start of the free memory bitmap
@@ -5020,24 +3444,10 @@ index c6ef534..f0d322d 100644
 -                    inca                ; D = $300
 -                    std       <D.ModDir ; $300 = module directory starting address
 -                    stx       <D.ModDir+2 ; X = $400 = module directory ending address
-+ inca D = $100
-+ inca D = $200
-+ std <D.FMBM $200 = start of the free memory bitmap
-+ addb #$20 D = $220
-+ std <D.FMBM+2 $220 = end of the free memory bitmap
-+ addb #$02 D = $222
-+ std <D.SysDis $222 = address of the system dispatch table
-+ addb #$70 D = $292
-+ std <D.UsrDis $292 = address of the user dispatch table
-+ clrb D = $200
-+ inca D = $300
-+ std <D.ModDir $300 = module directory starting address
-+ stx <D.ModDir+2 X = $400 = module directory ending address
-+ leas >$0100,x S = $500 = system stack
- 
- * This routine checks for RAM by writing a pattern at an address
- * then reading it back for validation. It may not be needed, so it's
- * conditionalized.
+-
+-* This routine checks for RAM by writing a pattern at an address
+-* then reading it back for validation. It may not be needed, so it's
+-* conditionalized.
 -                  IFNE    CHECK_FOR_VALID_RAM ; begin conditional assembly for CHECK_FOR_VALID_RAM
 -*[[[ CHECK_FOR_VALID_RAM
 -                  IFNE    wildbits ; begin conditional assembly for wildbits
@@ -5095,36 +3505,8 @@ index c6ef534..f0d322d 100644
 -* X = top of Krn, so start searching for modules there.
 -*]]] Wildbits port
 -                  ENDC
-+ ifne CHECK_FOR_VALID_RAM
-+*>>>>>>>>>> CHECK_FOR_VALID_RAM
-+ leax ModTop,pcr point X to start of kernel module
-+ pshs x save it on the stack
-+ChkRAM leay ,x point Y to X ($400)
-+ ldd ,y store org contents in D
-+ ldx #$00FF set X to pattern to write
-+ stx ,y write pattern to ,Y
-+ cmpx ,y same as what we wrote?
-+ bne EndOfRAM@ nope, not RAM here!
-+ ldx #$FF00 try different pattern
-+ stx ,y write it to ,Y
-+ cmpx ,y same as what we wrote?
-+ bne EndOfRAM@ nope, not RAM here!
-+ std ,y else restore org contents
-+ leax >$0100,y check top of next 256 block
-+ cmpx ,s stop short kernel
-+ bcs ChkRAM branch if not done
-+ leay ,x point Y to X (end of RAM)
-+EndOfRAM@ leax ,y X = end of RAM
-+ leas 2,s
-+*<<<<<<<<<< CHECK_FOR_VALID_RAM
-+ else
-+*>>>>>>>>>> NOT(CHECK_FOR_VALID_RAM)
-+ leax ModTop,pcr point X to start of kernel module
-+*<<<<<<<<<< NOT(CHECK_FOR_VALID_RAM)
-+ endc
-+ stx <D.MLIM save off as the memory limit
- 
- * Copy vector code over to D.XSWI3 ($0100).
+-
+-* Copy vector code over to D.XSWI3 ($0100).
 -                    pshs      x         ; save off X
 -                    leax      >VectCode,pcr ; point X to vector code
 -                    ldy       #D.XSWI3  ; point Y to vector base in low RAM
@@ -5165,21 +3547,10 @@ index c6ef534..f0d322d 100644
 -                  ENDC
 -
 -                    lbsr      ValMods   ; call local routine ValMods
-+ pshs x save off X
-+ leax >VectCode,pcr point X to vector code
-+ ldy #D.XSWI3 point Y to vector base in low RAM
-+ ldb #VectCSz get size of vector code in B
-+loop@ lda ,x+ get source byte
-+ sta ,y+ save in destination
-+ decb decrement counter
-+ bne loop@ branch if not done
-+ puls x recover the saved RAM upper limit
-+ ldy #MappedIOStart stop short of IO address area
-+ lbsr ValMods validate modules there
- 
- * Some platforms don't have contiguous RAM in the 64K address space due to "holes"
- * for areas such as I/O. For these platforms, we have to perform a separate
- * module scan to look for modules after those holes.
+-
+-* Some platforms don't have contiguous RAM in the 64K address space due to "holes"
+-* for areas such as I/O. For these platforms, we have to perform a separate
+-* module scan to look for modules after those holes.
 -                  IFNE    atari   ; begin conditional assembly for atari
 -* Atari: look for more modules at $D800-$F3FF.
 -*[[[ ATARI LIBER809 port
@@ -5195,8 +3566,8 @@ index c6ef534..f0d322d 100644
 -                    lbsr      ValMods   ; validate mods here
 -*]]] ATARI LIBER809 port
 -                  ENDC
- 
- * Copy vectors to system globals.
+-
+-* Copy vectors to system globals.
 -                    leay      >Vectors,pcr ; point Y to vectors
 -                    leax      >ModTop,pcr ; point X to top of the kernel
 -                    pshs      x         ; save off
@@ -5207,18 +3578,8 @@ index c6ef534..f0d322d 100644
 -                    cmpx      #D.NMI    ; at the end?
 -                    bls       copy@     ; branch if not
 -                    leas      2,s       ; restore stack
-+ leay >Vectors,pcr point Y to vectors
-+ leax >ModTop,pcr point X to top of the kernel
-+ pshs x save off
-+ ldx #D.SWI3 point X to vectors in system globals
-+copy@ ldd ,y++ get vector bytes
-+ addd ,s add the kernel's module address
-+ std ,x++ save off in system globals
-+ cmpx #D.NMI at the end?
-+ bls copy@ branch if not
-+ leas 2,s restore stack
- 
- * Fill in more system globals.
+-
+-* Fill in more system globals.
 -                    leax      >URtoSs,pcr ; get address of user to system state routine
 -                    stx       <D.URtoSs ; store it in system globals
 -                    leax      >UsrIRQ,pcr ; get user state IRQ routine
@@ -5238,63 +3599,17 @@ index c6ef534..f0d322d 100644
 -                    leax      >Clock,pcr ; get the default tick generator routine
 -                    stx       <D.Clock  ; store it in system globals
 -                    stx       <D.AltIRQ ; and in the alternate IRQ vector
-+ leax >URtoSs,pcr get address of user to system state routine
-+ stx <D.URtoSs store it in system globals
-+ leax >UsrIRQ,pcr get user state IRQ routine
-+ stx <D.UsrIRQ store it in system globals
-+ leax >UsrSvc,pcr get the user state service routine
-+ stx <D.UsrSvc store it in system globals
-+ leax >SysIRQ,pcr get the system state IRQ routine
-+ stx <D.SysIRQ store it in system globals
-+ stx <D.SvcIRQ and the IRQ sevice vector
-+ leax >SysSvc,pcr get the system state service routine
-+ stx <D.SysSvc store it in system globals
-+ stx <D.SWI2 and in the SWI2 vector
-+ ifne _FF_IRQ_POLL
-+ leax >FIRQPoller,pcr get the address of the IRQ polling routine
-+ else
-+ leax >Poll,pcr get the default polling routine
-+ endc
-+ stx <D.Poll store it in system globals
-+ leax >Clock,pcr get the default tick generator routine
-+ stx <D.Clock store it in system globals
- 
- * Install system calls.
+-
+-* Install system calls.
 -                    leay      >SysTbl,pcr ; get the system call table address
 -                    lbsr      InstallSvc ; and install it
-+ leay >SysTbl,pcr get the system call table address
-+ lbsr InstallSvc and install it
-+
-+* Link to init module.
-+ lda #Systm+0 we want a system module
-+ leax >InitNam,pcr point to the configuration module name
-+ os9 F$Link link to it
-+ lbcs FatalErr if error, restart kernel
-+ stu <D.Init else store it in system globals
-+ ifne _FF_MODCHECK
-+ lda CM$Feature1,u get feature byte 1
-+ bita #CRCOn is CRC checking on?
-+ beq continue@ branch if not (already cleared earlier)
-+ inc <D.CRC else turn on CRC checking
-+ endc
-+continue@
-+
-+* Link to tick generator module, if any and call its initialization routine.
-+ ldd CM$TickMod,u
-+ beq continue@
-+ leax d,u
-+ lda #Systm+0
-+ os9 F$Link
-+ bcs continue@
-+ jsr ,y
-+continue@
- 
- * Setup the free memory bitmap.
- * This area of the kernel is highly platform-dependent.
-@@ -300,342 +232,466 @@ copy@               ldd       ,y++      ; get vector bytes
- * The free memory bitmap has the following structure:
- *   bit 7 of 0,x corresponds to page 0, bit 6 to page 1 etc.
- *   bit 7 of 1,x corresponds to page 8, bit 6 to page 9 etc.
+-
+-* Setup the free memory bitmap.
+-* This area of the kernel is highly platform-dependent.
+-*
+-* The free memory bitmap has the following structure:
+-*   bit 7 of 0,x corresponds to page 0, bit 6 to page 1 etc.
+-*   bit 7 of 1,x corresponds to page 8, bit 6 to page 9 etc.
 -                    ldx       <D.FMBM   ; get free memory bitmap in X
 -                  IFNE    atari   ; begin conditional assembly for atari
 -*[[[ ATARI LIBER809 port
@@ -5323,11 +3638,8 @@ index c6ef534..f0d322d 100644
 -*]]] NOT(ATARI LIBER809 port | CORSHAM port)
 -                  ENDC
 -                  ENDC
-+ ldx <D.FMBM get free memory bitmap in X
-+ ldb #%11111000 get mask for $0000-$04FF
-+ stb ,x mark those pages as allocated
- 
- * Exclude high memory as defined (earlier) by D.MLIM.
+-
+-* Exclude high memory as defined (earlier) by D.MLIM.
 -                    clra                ; A = 0
 -                    ldb       <D.MLIM   ; B = upper byte of 16 bit memory limit
 -                    negb                ; negate B
@@ -5341,10 +3653,12 @@ index c6ef534..f0d322d 100644
 -                    os9       F$Link    ; link to it
 -                    lbcs      OS9Cold   ; if error, restart kernel
 -                    stu       <D.Init   ; else store it in system globals
+-                    ifne      _FF_MODCHECK
 -                    lda       Feature1,u ; get feature byte 1
 -                    bita      #CRCOn    ; is CRC checking on?
 -                    beq       continue@ ; branch if not (already cleared earlier)
 -                    inc       <D.CRC    ; else turn on CRC checking
+-                    endc
 -continue@
 -
 -* Jump into krnp2 here
@@ -5369,6 +3683,527 @@ index c6ef534..f0d322d 100644
 -                    ldx       b,x       ; get SWI entry
 -                    stx       3,s       ; put in PC on stack
 -                    puls      pc,x,b    ; restore registers and return
+-
+-* User state interrupt service routine entry.
+-UsrIRQ              leay      <DoIRQPoll,pcr ; point to the default IRQ polling routine
+-* Transition from user to system state.
+-URtoSs              clra                ; clear A
+-                    tfr       a,dp      ; and transfer to the direct page
+-                    ldx       <D.Proc   ; get current process desc
+-* The system state service routine address moves into the D.SWI2 vector.
+-* That way, if a system call is made while we are in system state,
+-* D.SWI2 is vectored to the system state service routine.
+-                    ldd       <D.SysSvc ; get system state system call vector
+-                    std       <D.SWI2   ; store in D.SWI2
+-* The same comment above applies to the IRQ service vector.
+-                    ldd       <D.SysIRQ ; get system IRQ vector
+-                    std       <D.SvcIRQ ; store in D.SvcIRQ
+-                    leau      ,s        ; point U to S
+-                    stu       P$SP,x    ; and save in process P$SP
+-                    lda       P$State,x ; get state field in proc desc
+-                    ora       #SysState ; mark process to be in system state
+-                    sta       P$State,x ; store it
+-                    jmp       ,y        ; jump to the polling routine
+-
+-DoIRQPoll           equ       *
+-                    ifne      _FF_IRQ_POLL
+-                    jsr       [>D.Poll] ; call the interrupt polling routine
+-                    bcc       go@       ; branch if carry clear
+-                    ldb       ,s        ; get the CC on the stack
+-                    orb       #IRQMask  ; mask IRQs
+-                    stb       ,s        ; and save it back
+-                    endc
+-go@                 lbra      ActivateProc ; go activate the process
+-
+-* System state interrupt service routine entry
+-SysIRQ              clra                ; clear A
+-                    tfr       a,dp      ; and transfer it to the direct page
+-                    ifne      _FF_IRQ_POLL
+-                    jsr       [>D.Poll] ; call the vectored IRQ polling routine
+-                    bcc       ex@       ; branch if carry is clear
+-                    ldb       ,s        ; get the CC on the stack
+-                    orb       #IRQMask  ; mask IRQs
+-                    stb       ,s        ; and save it back
+-                    endc
+-ex@                 rti                 ; return from interrupt
+-
+-* This is the default interrupt polling routine -- it does nothing.
+-Poll                comb                ; update processor state
+-                    rts                 ; return to caller
+-
+-* Here is the default clock routine which performs process queue management.
+-Clock               ldx       <D.SProcQ ; get pointer to sleeping proc queue
+-                    beq       decslice@ ; branch if no process sleeping
+-                    lda       P$State,x ; get state of that process
+-                    bita      #TimSleep ; timed sleep?
+-                    beq       decslice@ ; branch if clear
+-                    ldu       P$SP,x    ; else get process stack pointer
+-                    ldd       R$X,u     ; get the value of the process X reg
+-                    subd      #$0001    ; subtract one from it
+-                    std       R$X,u     ; and store it back
+-                    bne       decslice@ ; branch if not zero (still will sleep)
+-nextqentry@         ldu       P$Queue,x ; get process current queue pointer
+-                    bsr       SFAProc   ; activate the process
+-                    leax      ,u        ; point to the queue
+-                    beq       saveit@   ; branch if empty
+-                    lda       P$State,x ; get process state byte
+-                    bita      #TimSleep ; bit set?
+-                    beq       saveit@   ; branch if not
+-                    ldu       P$SP,x    ; get process stack pointer
+-                    ldd       R$X,u     ; then get process X register
+-                    beq       nextqentry@ ; branch if zero
+-saveit@             stx       <D.SProcQ ; save in the sleep queue
+-decslice@           dec       <D.Slice  ; decrement slice
+-                    bne       ex@       ; if not 0, exit ISR
+-                    lda       <D.TSlice ; else get default time slice
+-                    sta       <D.Slice  ; and save it as slice
+-                    ldx       <D.Proc   ; get proc desc of current proc
+-                    beq       ex@       ; if none, exit ISR
+-                    lda       P$State,x ; get process state
+-                    ora       #TimOut   ; set timeout bit
+-                    sta       P$State,x ; and store back
+-                    bpl       gosys@    ; branch if not system state
+-ex@                 rti                 ; return from the interrupt
+-gosys@              leay      >ActivateProc,pcr ; point Y to activate process routine
+-                    bra       URtoSs    ; go to system state
+-
+-                    use       faproc.asm ; include source file faproc.asm
+-
+-* User state system call entry point.
+-*
+-* All system calls made from user state go through this code.
+-UsrSvc              leay      <MakeSysCall,pcr ; point Y to make system call routine
+-                    orcc      #IntMasks ; mask interrupts
+-                    lbra      URtoSs    ; go to system state
+-
+-MakeSysCall         andcc     #^IntMasks ; unmask interrupts
+-                    ldy       <D.UsrDis ; get pointer to user system call dispatch table
+-                    bsr       DoSysCall ; go do the system call
+-ActivateProc        ldx       <D.Proc   ; get current proc desc
+-                    beq       FNProc    ; branch to FNProc if none
+-                    orcc      #IntMasks ; mask interrupts
+-                    ldb       P$State,x ; get state value in proc desc
+-                    andb      #^SysState ; turn off system state flag
+-                    stb       P$State,x ; save state value
+-                    bitb      #TimOut   ; timeout bit set?
+-                    beq       CheckState ; branch if not
+-                    andb      #^TimOut  ; else turn off bit
+-                    stb       P$State,x ; in state value
+-                    bsr       SFAProc   ; call local routine SFAProc
+-                    bra       FNProc    ; next process
+-
+-* System state system call entry point.
+-*
+-* All system calls made from system state go through this code.
+-SysSvc              clra                ; A = 0
+-                    tfr       a,dp      ; set direct page to 0
+-                    leau      ,s        ; point U to SP
+-                    ldy       <D.SysDis ; get system state dispatch table ptr
+-                    bsr       DoSysCall ; perform the system call
+-                    rti                 ; return
+-
+-* This is the common system call entry point for user and system state.
+-*
+-* Entry: Y = The dispatch table (user or system).
+-*        U = The caller's register pointer.
+-DoSysCall           pshs      u         ; save off caller's register pointer
+-                    ldx       R$PC,u    ; point X to PC
+-                    ldb       ,x+       ; get func code at X
+-                    stx       R$PC,u    ; restore updated PC
+-                    lslb                ; high bit set?
+-                    bcc       nonio@    ; branch if not (non I/O call)
+-                    ifne      _FF_UNIFIED_IO
+-                    rorb                ; else restore B (its an I/O call)
+-                    ldx       -2,y      ; grab IOMan vector
+-                    beq       callexit@ ; just exit if IOMan vector is empty
+-                    bra       execcall@ ; make system call
+-                    else
+-                    bra       callerr@  ; I/O is not included in this build
+-                    endc
+-nonio@              cmpb      #$37*2    ; non-IO call; are we in safe are?
+-                    bcc       callerr@  ; branch if not (unknown service)
+-                    ldx       b,y       ; X = address of system call
+-                    beq       callerr@  ; if nil, unknown service
+-execcall@           jsr       ,x        ; jsr into system call
+-callexit@           puls      u         ; recover caller's registers
+-                    tfr       cc,a      ; get CC into A
+-                    bcc       FixCC     ; branch if no error
+-                    stb       R$B,u     ; store error code
+-FixCC               ldb       R$CC,u    ; get caller's CC
+-                    andb      #^(Negative+Zero+TwosOvfl+Carry) ; turn off these flags
+-                    stb       R$CC,u    ; save to caller's CC
+-                    anda      #Negative+Zero+TwosOvfl+Carry ; turn off these flags
+-                    ora       R$CC,u    ; oR with caller's CC
+-                    sta       R$CC,u    ; and saved to caller's CC
+-                    rts                 ; return
+-callerr@            comb                ; set carry for error state
+-                    ldb       #E$UnkSvc ; unknown service
+-                    bra       callexit@ ; perform exit
+-
+-                    use       fnproc.asm ; include source file fnproc.asm
+-                    use       flink.asm ; include source file flink.asm
+-                    use       fvmodul.asm ; include source file fvmodul.asm
+-                    ifne      _FF_MODCHECK
+-                    use       fcrc.asm  ; include source file fcrc.asm
+-                    endc
+-                    use       ffork.asm ; include source file ffork.asm
+-                    use       fchain.asm ; include source file fchain.asm
+-                    use       fsrqmem.asm ; include source file fsrqmem.asm
+-                    use       fallbit.asm ; include source file fallbit.asm
+-                    use       fprsnam.asm ; include source file fprsnam.asm
+-                    use       fcmpnam.asm ; include source file fcmpnam.asm
+-                    use       fssvc.asm ; include source file fssvc.asm
+-
+-* Validate modules in memory.
+-*
+-* Entry: X = The address to start searching.
+-*        Y = The address to stop (actually stops at Y-1).
+-ValMods             pshs      y         ; save off Y
+-loop@               lbsr      ValMod    ; go validate module
+-                    bcs       ValErr    ; branch if error
+-                    ldd       M$Size,x  ; get size of module into D
+-                    leax      d,x       ; point X past module
+-                    bra       valcheck  ; go check if we're at end
+-ValErr              cmpb      #E$KwnMod ; did the validation check show a known module?
+-                    beq       ex@       ; branch if so
+-                    leax      1,x       ; else advance X by one byte
+-valcheck            cmpx      ,s        ; check if we're at end
+-                    bcs       loop@     ; branch if not
+-ex@                 puls      y,pc      ; restore Y and return
+-
+-* This vector code that the kernel copies to low RAM ($0100).
+-VectCode            bra       SWI3Jmp   ; $0100
+-                    nop       ;         no operation placeholder
+-                    bra       SWI2Jmp   ; $0103
+-                    nop       ;         no operation placeholder
+-                    bra       SWIJmp    ; $0106
+-                    nop       ;         no operation placeholder
+-                    bra       NMIJmp    ; $0109
+-                    nop       ;         no operation placeholder
+-                    bra       IRQJmp    ; $010C
+-                    nop       ;         no operation placeholder
+-                    bra       FIRQJmp   ; $010F
+-SWI3Jmp             jmp       [>D.SWI3] ; transfer control to [>D.SWI3]
+-SWI2Jmp             jmp       [>D.SWI2] ; transfer control to [>D.SWI2]
+-SWIJmp              jmp       [>D.SWI]  ; transfer control to [>D.SWI]
+-NMIJmp              jmp       [>D.NMI]  ; transfer control to [>D.NMI]
+-IRQJmp              jmp       [>D.IRQ]  ; transfer control to [>D.IRQ]
+-FIRQJmp             jmp       [>D.FIRQ] ; transfer control to [>D.FIRQ]
+-VectCSz             equ       *-VectCode ; define assembler symbol
+-
+-
+-* The system call table.
+-SysTbl              fcb       F$Link    ; define byte value(s) F$Link
+-                    fdb       FLink-*-2 ; define word value(s) FLink-*-2
+-                    fcb       F$Fork    ; define byte value(s) F$Fork
+-                    fdb       FFork-*-2 ; define word value(s) FFork-*-2
+-                    fcb       F$Chain   ; define byte value(s) F$Chain
+-                    fdb       FChain-*-2 ; define word value(s) FChain-*-2
+-                    fcb       F$Chain+SysState ; define byte value(s) F$Chain+SysState
+-                    fdb       SFChain-*-2 ; define word value(s) SFChain-*-2
+-                    fcb       F$PrsNam  ; define byte value(s) F$PrsNam
+-                    fdb       FPrsNam-*-2 ; define word value(s) FPrsNam-*-2
+-                    fcb       F$CmpNam  ; define byte value(s) F$CmpNam
+-                    fdb       FCmpNam-*-2 ; define word value(s) FCmpNam-*-2
+-                    fcb       F$SchBit  ; define byte value(s) F$SchBit
+-                    fdb       FSchBit-*-2 ; define word value(s) FSchBit-*-2
+-                    fcb       F$AllBit  ; define byte value(s) F$AllBit
+-                    fdb       FAllBit-*-2 ; define word value(s) FAllBit-*-2
+-                    fcb       F$DelBit  ; define byte value(s) F$DelBit
+-                    fdb       FDelBit-*-2 ; define word value(s) FDelBit-*-2
+-                    ifne      _FF_MODCHECK
+-                    fcb       F$CRC     ; define byte value(s) F$CRC
+-                    fdb       FCRC-*-2  ; define word value(s) FCRC-*-2
+-                    endc
+-                    fcb       F$SRqMem+SysState ; define byte value(s) F$SRqMem+SysState
+-                    fdb       FSRqMem-*-2 ; define word value(s) FSRqMem-*-2
+-                    fcb       F$SRtMem+SysState ; define byte value(s) F$SRtMem+SysState
+-                    fdb       FSRtMem-*-2 ; define word value(s) FSRtMem-*-2
+-                    fcb       F$AProc+SysState ; define byte value(s) F$AProc+SysState
+-                    fdb       FAProc-*-2 ; define word value(s) FAProc-*-2
+-                    fcb       F$NProc+SysState ; define byte value(s) F$NProc+SysState
+-                    fdb       FNProc-*-2 ; define word value(s) FNProc-*-2
+-                    fcb       F$VModul+SysState ; define byte value(s) F$VModul+SysState
+-                    fdb       FVModul-*-2 ; define word value(s) FVModul-*-2
+-                    fcb       F$SSvc    ; define byte value(s) F$SSvc
+-                    fdb       FSSvc-*-2 ; define word value(s) FSSvc-*-2
+-                    fcb       $80       ; define byte value(s) $80
+-
+-InitNam             fcs       /Init/
+-
+-P2Nam               fcs       /krnp2/
+-
+-EOMTop              equ       *         ; define assembler symbol
+-
+-                  IFEQ    corsham+wildbits ; begin conditional assembly for corsham+wildbits
+-*[[[ NOT(CORSHAM port | Wildbits port)
+-                    emod
+-eom                 equ       *         ; define assembler symbol
+-*]]] NOT(CORSHAM port | Wildbits port)
+-                  ENDC
+-
+-Vectors             fdb       SWI3      ; sWI3
+-                    fdb       SWI2      ; sWI2
+-                    fdb       DUMMY     ; fIRQ
+-                    fdb       SVCIRQ    ; iRQ
+-                    fdb       SWI       ; sWI
+-                    fdb       SVCNMI    ; nMI
+-
+-                  IFNE    atari   ; begin conditional assembly for atari
+-*[[[ ATARI LIBER809 port
+-                    fdb       $F3FE-(*-OS9Cold) ; define word value(s) $F3FE-(*-OS9Cold)
+-*]]] ATARI LIBER809 port
+-                  ENDC
+-
+-                  IFNE    corsham+wildbits ; begin conditional assembly for corsham+wildbits
+-*[[[ CORSHAM port | Wildbits port
+-                    emod
+-eom                 equ       *         ; define assembler symbol
+-*]]] CORSHAM port | Wildbits port
+-                  ENDC
+-EOMSize             equ       *-EOMTop  ; define assembler symbol
+-
+-                    end
++*******************************************************************************
++* TurbOS
++*******************************************************************************
++* See LICENSE.txt for licensing information.
++*******************************************************************************
++*
++* Edt/Rev  YYYY/MM/DD  Modified by
++* Comment
++* ----------------------------------------------------------------------------
++*          2023/08/11  Boisy Pitre
++* Initial creation.
++*
++*******************************************************************************
++* NOTES:
++*
++* This is how the memory map looks after the kernel has initialized:
++*
++*     $0000----> ==================================
++*               |                                  |
++*               |                                  |
++*  $0020-$0111  |  System Globals (D.FMBM-D.XNMI)  |
++*               |                                  |
++*               |                                  |
++*     $0200---->|==================================|
++*               |        Free Memory Bitmap        |
++*  $0200-$021F  |     (1 bit = 256 byte page)      |
++*               |----------------------------------|
++*  $0220-$0221  |      IOMan I/O Call Pointer      |
++*               |----------------------------------|
++*               |      System Dispatch Table       |
++*  $0222-$0291  |     (Room for 56 addresses)      |
++*               |----------------------------------|
++*  $0292-$02FF  |       User Dispatch Table        |
++*               |     (Room for 56 addresses)      |
++*     $0300---->|==================================|
++*               |                                  |
++*               |                                  |
++*  $0300-$03FF  |     Module Directory Entries     |
++*               |      (Room for 64 entries)       |
++*               |                                  |
++*     $0400---->|==================================|
++*               |                                  |
++*  $0400-$04FF  |           System Stack           |
++*               |                                  |
++*     $0500---->|==================================|
++*
++
++ nam Kernel
++ ttl TurbOS Kernel
++
++ use defs.d
++ use features.d
++
++tylg set Systm+Objct
++atrv set ReEnt+rev
++rev set $00
++edition set 1
++
++ModTop mod eom,name,tylg,atrv,ColdStart,size
++
++size equ .
++
++name fcs /kernel/
++ fcb edition
++
++**************************
++* Kernel entry point
++*
++ColdStart equ *
++ ifne f256
++*>>>>>>>>>> F256 PORT
++* In RAM mode, the F256 memory map looks like this:
++*    $0000-$1FFF - RAM at $000000-$001FFF
++*    $2000-$3FFF - RAM at $002000-$003FFF
++*    $4000-$5FFF - RAM at $004000-$005FFF
++*    $6000-$7FFF - RAM at $006000-$007FFF
++*    $8000-$9FFF - RAM at $008000-$009FFF
++*    $A000-$BFFF - RAM at $00A000-$00BFFF
++*    $C000-$DFFF - RAM at $00C000-$00DFFF
++*    $E000-$FFFF - RAM at $00E000-$00FFFF
++* F256-specific initialization to get the F256 to a sane state.
++ orcc #IntMasks mask interrupts
++ clra clear A
++ tfr a,dp transfer to DP
++ clr MMU_MEM_CTRL set active LUT to set 0
++ lda #$FF set all bits in A
++ sta INT_MASK_0 mask all set 0 interrupts
++ sta INT_MASK_1 mask all set 1 interrupts
++ sta INT_PENDING_0 clear any pending set 0 interrupts
++ sta INT_PENDING_1 clear any pending set 0 interrupts
++*<<<<<<<<<< F256 PORT
++ endc
++
++* Clear out system global variables from $D.FMBM-$0400.
++ ldx #D.FMBM start clearing memory at D.FMBM
++ ldy #$400-D.FMBM get the number of bytes to clear
++ clra clear A
++ clrb clear B (D now $0000)
++loop@ std ,x++ save off at X and increment
++ leay -2,y decrement counter
++ bne loop@ continue if not zero
++
++* Set up the system globals area.
++ inca D = $100
++ inca D = $200
++ std <D.FMBM $200 = start of the free memory bitmap
++ addb #$20 D = $220
++ std <D.FMBM+2 $220 = end of the free memory bitmap
++ addb #$02 D = $222
++ std <D.SysDis $222 = address of the system dispatch table
++ addb #$70 D = $292
++ std <D.UsrDis $292 = address of the user dispatch table
++ clrb D = $200
++ inca D = $300
++ std <D.ModDir $300 = module directory starting address
++ stx <D.ModDir+2 X = $400 = module directory ending address
++ leas >$0100,x S = $500 = system stack
++
++* This routine checks for RAM by writing a pattern at an address
++* then reading it back for validation. It may not be needed, so it's
++* conditionalized.
++ ifne CHECK_FOR_VALID_RAM
++*>>>>>>>>>> CHECK_FOR_VALID_RAM
++ leax ModTop,pcr point X to start of kernel module
++ pshs x save it on the stack
++ChkRAM leay ,x point Y to X ($400)
++ ldd ,y store org contents in D
++ ldx #$00FF set X to pattern to write
++ stx ,y write pattern to ,Y
++ cmpx ,y same as what we wrote?
++ bne EndOfRAM@ nope, not RAM here!
++ ldx #$FF00 try different pattern
++ stx ,y write it to ,Y
++ cmpx ,y same as what we wrote?
++ bne EndOfRAM@ nope, not RAM here!
++ std ,y else restore org contents
++ leax >$0100,y check top of next 256 block
++ cmpx ,s stop short kernel
++ bcs ChkRAM branch if not done
++ leay ,x point Y to X (end of RAM)
++EndOfRAM@ leax ,y X = end of RAM
++ leas 2,s
++*<<<<<<<<<< CHECK_FOR_VALID_RAM
++ else
++*>>>>>>>>>> NOT(CHECK_FOR_VALID_RAM)
++ leax ModTop,pcr point X to start of kernel module
++*<<<<<<<<<< NOT(CHECK_FOR_VALID_RAM)
++ endc
++ stx <D.MLIM save off as the memory limit
++
++* Copy vector code over to D.XSWI3 ($0100).
++ pshs x save off X
++ leax >VectCode,pcr point X to vector code
++ ldy #D.XSWI3 point Y to vector base in low RAM
++ ldb #VectCSz get size of vector code in B
++loop@ lda ,x+ get source byte
++ sta ,y+ save in destination
++ decb decrement counter
++ bne loop@ branch if not done
++ puls x recover the saved RAM upper limit
++ ldy #MappedIOStart stop short of IO address area
++ lbsr ValMods validate modules there
++
++* Some platforms don't have contiguous RAM in the 64K address space due to "holes"
++* for areas such as I/O. For these platforms, we have to perform a separate
++* module scan to look for modules after those holes.
++
++* Copy vectors to system globals.
++ leay >Vectors,pcr point Y to vectors
++ leax >ModTop,pcr point X to top of the kernel
++ pshs x save off
++ ldx #D.SWI3 point X to vectors in system globals
++copy@ ldd ,y++ get vector bytes
++ addd ,s add the kernel's module address
++ std ,x++ save off in system globals
++ cmpx #D.NMI at the end?
++ bls copy@ branch if not
++ leas 2,s restore stack
++
++* Fill in more system globals.
++ leax >URtoSs,pcr get address of user to system state routine
++ stx <D.URtoSs store it in system globals
++ leax >UsrIRQ,pcr get user state IRQ routine
++ stx <D.UsrIRQ store it in system globals
++ leax >UsrSvc,pcr get the user state service routine
++ stx <D.UsrSvc store it in system globals
++ leax >SysIRQ,pcr get the system state IRQ routine
++ stx <D.SysIRQ store it in system globals
++ stx <D.SvcIRQ and the IRQ sevice vector
++ leax >SysSvc,pcr get the system state service routine
++ stx <D.SysSvc store it in system globals
++ stx <D.SWI2 and in the SWI2 vector
++ ifne _FF_IRQ_POLL
++ leax >FIRQPoller,pcr get the address of the IRQ polling routine
++ else
++ leax >Poll,pcr get the default polling routine
++ endc
++ stx <D.Poll store it in system globals
++ leax >Clock,pcr get the default tick generator routine
++ stx <D.Clock store it in system globals
++
++* Install system calls.
++ leay >SysTbl,pcr get the system call table address
++ lbsr InstallSvc and install it
++
++* Link to init module.
++ lda #Systm+0 we want a system module
++ leax >InitNam,pcr point to the configuration module name
++ os9 F$Link link to it
++ lbcs FatalErr if error, restart kernel
++ stu <D.Init else store it in system globals
++ ifne _FF_MODCHECK
++ lda CM$Feature1,u get feature byte 1
++ bita #CRCOn is CRC checking on?
++ beq continue@ branch if not (already cleared earlier)
++ inc <D.CRC else turn on CRC checking
++ endc
++continue@
++
++* Link to tick generator module, if any and call its initialization routine.
++ ldd CM$TickMod,u
++ beq continue@
++ leax d,u
++ lda #Systm+0
++ os9 F$Link
++ bcs continue@
++ jsr ,y
++continue@
++
++* Setup the free memory bitmap.
++* This area of the kernel is highly platform-dependent.
++*
++* The free memory bitmap has the following structure:
++*   bit 7 of 0,x corresponds to page 0, bit 6 to page 1 etc.
++*   bit 7 of 1,x corresponds to page 8, bit 6 to page 9 etc.
++ ldx <D.FMBM get free memory bitmap in X
++ ldb #%11111000 get mask for $0000-$04FF
++ stb ,x mark those pages as allocated
++
++* Exclude high memory as defined (earlier) by D.MLIM.
 + clra A = 0
 + ldb <D.MLIM B = upper byte of 16 bit memory limit
 + negb negate B
@@ -5455,7 +4290,7 @@ index c6ef534..f0d322d 100644
 +SWI2 pshs pc,x,b save off registers again
 + ldb #P$SWI2 get P$SWI2
 + bra FixSWI save it off in process descriptor
-+SVCNMI 
++SVCNMI
 +DUMMY rti return from interrupt
 +SVCIRQ jmp [>D.SvcIRQ] jump to service IRQ address
 +SWI pshs pc,x,b save off registers
@@ -5464,40 +4299,19 @@ index c6ef534..f0d322d 100644
 + ldx b,x get SWI entry
 + stx 3,s put in PC on stack
 + puls pc,x,b restore registers and return
- 
- * User state interrupt service routine entry.
--UsrIRQ              leay      <DoIRQPoll,pcr ; point to the default IRQ polling routine
++
++* User state interrupt service routine entry.
 +UsrIRQ leay <DoIRQPoll,pcr point to the default IRQ polling routine
- * Transition from user to system state.
--URtoSs              clra                ; clear A
--                    tfr       a,dp      ; and transfer to the direct page
--                    ldx       <D.Proc   ; get current process desc
++* Transition from user to system state.
 +URtoSs clra clear A
 + tfr a,dp and transfer to the direct page
 + ldx <D.Proc get current process desc
- * The system state service routine address moves into the D.SWI2 vector.
- * That way, if a system call is made while we are in system state,
- * D.SWI2 is vectored to the system state service routine.
--                    ldd       <D.SysSvc ; get system state system call vector
--                    std       <D.SWI2   ; store in D.SWI2
++* The system state service routine address moves into the D.SWI2 vector.
++* That way, if a system call is made while we are in system state,
++* D.SWI2 is vectored to the system state service routine.
 + ldd <D.SysSvc get system state system call vector
 + std <D.SWI2 store in D.SWI2
- * The same comment above applies to the IRQ service vector.
--                    ldd       <D.SysIRQ ; get system IRQ vector
--                    std       <D.SvcIRQ ; store in D.SvcIRQ
--                    leau      ,s        ; point U to S
--                    stu       P$SP,x    ; and save in process P$SP
--                    lda       P$State,x ; get state field in proc desc
--                    ora       #SysState ; mark process to be in system state
--                    sta       P$State,x ; store it
--                    jmp       ,y        ; jump to the polling routine
--
--DoIRQPoll           jsr       [>D.Poll] ; call the interrupt polling routine
--                    bcc       go@       ; branch if carry clear
--                    ldb       ,s        ; get the CC on the stack
--                    orb       #IRQMask  ; mask IRQs
--                    stb       ,s        ; and save it back
--go@                 lbra      ActivateProc ; go activate the process
++* The same comment above applies to the IRQ service vector.
 + ldd <D.SysIRQ get system IRQ vector
 + std <D.SvcIRQ store in D.SvcIRQ
 + leau ,s point U to S
@@ -5507,74 +4321,33 @@ index c6ef534..f0d322d 100644
 + sta P$State,x store it
 + jmp ,y jump to the polling routine
 +
-+DoIRQPoll jsr [>D.Poll] call the interrupt polling routine
++DoIRQPoll equ *
++ ifne _FF_IRQ_POLL
++ jsr [>D.Poll] call the interrupt polling routine
 + bcc go@ branch if carry clear
 + ldb ,s get the CC on the stack
 + orb #IRQMask mask IRQs
 + stb ,s and save it back
++ endc
 +go@ lbra ActivateProc go activate the process
- 
- * System state interrupt service routine entry
--SysIRQ              clra                ; clear A
--                    tfr       a,dp      ; and transfer it to the direct page
--                    jsr       [>D.Poll] ; call the vectored IRQ polling routine
--                    bcc       ex@       ; branch if carry is clear
--                    ldb       ,s        ; get the CC on the stack
--                    orb       #IRQMask  ; mask IRQs
--                    stb       ,s        ; and save it back
--ex@                 rti                 ; return from interrupt
++
++* System state interrupt service routine entry
 +SysIRQ clra clear A
 + tfr a,dp and transfer it to the direct page
++ ifne _FF_IRQ_POLL
 + jsr [>D.Poll] call the vectored IRQ polling routine
 + bcc ex@ branch if carry is clear
 + ldb ,s get the CC on the stack
 + orb #IRQMask mask IRQs
 + stb ,s and save it back
++ endc
 +ex@ rti return from interrupt
- 
- * This is the default interrupt polling routine -- it does nothing.
--Poll                comb                ; update processor state
--                    rts                 ; return to caller
++
++* This is the default interrupt polling routine -- it does nothing.
 +Poll comb
 + rts
- 
- * Here is the default clock routine which performs process queue management.
--Clock               ldx       <D.SProcQ ; get pointer to sleeping proc queue
--                    beq       decslice@ ; branch if no process sleeping
--                    lda       P$State,x ; get state of that process
--                    bita      #TimSleep ; timed sleep?
--                    beq       decslice@ ; branch if clear
--                    ldu       P$SP,x    ; else get process stack pointer
--                    ldd       R$X,u     ; get the value of the process X reg
--                    subd      #$0001    ; subtract one from it
--                    std       R$X,u     ; and store it back
--                    bne       decslice@ ; branch if not zero (still will sleep)
--nextqentry@         ldu       P$Queue,x ; get process current queue pointer
--                    bsr       SFAProc   ; activate the process
--                    leax      ,u        ; point to the queue
--                    beq       saveit@   ; branch if empty
--                    lda       P$State,x ; get process state byte
--                    bita      #TimSleep ; bit set?
--                    beq       saveit@   ; branch if not
--                    ldu       P$SP,x    ; get process stack pointer
--                    ldd       R$X,u     ; then get process X register
--                    beq       nextqentry@ ; branch if zero
--saveit@             stx       <D.SProcQ ; save in the sleep queue
--decslice@           dec       <D.Slice  ; decrement slice
--                    bne       ex@       ; if not 0, exit ISR
--                    lda       <D.TSlice ; else get default time slice
--                    sta       <D.Slice  ; and save it as slice
--                    ldx       <D.Proc   ; get proc desc of current proc
--                    beq       ex@       ; if none, exit ISR
--                    lda       P$State,x ; get process state
--                    ora       #TimOut   ; set timeout bit
--                    sta       P$State,x ; and store back
--                    bpl       gosys@    ; branch if not system state
--ex@                 rti                 ; return from the interrupt
--gosys@              leay      >ActivateProc,pcr ; point Y to activate process routine
--                    bra       URtoSs    ; go to system state
--
--                    use       faproc.asm ; include source file faproc.asm
++
++* Here is the default clock routine which performs process queue management.
 +Clock ldx <D.SProcQ get pointer to sleeping proc queue
 + beq decslice@ branch if no process sleeping
 + lda P$State,x get state of that process
@@ -5611,29 +4384,10 @@ index c6ef534..f0d322d 100644
 + bra URtoSs go to system state
 +
 + use faproc.asm
- 
- * User state system call entry point.
- *
- * All system calls made from user state go through this code.
--UsrSvc              leay      <MakeSysCall,pcr ; point Y to make system call routine
--                    orcc      #IntMasks ; mask interrupts
--                    lbra      URtoSs    ; go to system state
--
--MakeSysCall         andcc     #^IntMasks ; unmask interrupts
--                    ldy       <D.UsrDis ; get pointer to user system call dispatch table
--                    bsr       DoSysCall ; go do the system call
--ActivateProc        ldx       <D.Proc   ; get current proc desc
--                    beq       FNProc    ; branch to FNProc if none
--                    orcc      #IntMasks ; mask interrupts
--                    ldb       P$State,x ; get state value in proc desc
--                    andb      #^SysState ; turn off system state flag
--                    stb       P$State,x ; save state value
--                    bitb      #TimOut   ; timeout bit set?
--                    beq       CheckState ; branch if not
--                    andb      #^TimOut  ; else turn off bit
--                    stb       P$State,x ; in state value
--                    bsr       SFAProc   ; call local routine SFAProc
--                    bra       FNProc    ; next process
++
++* User state system call entry point.
++*
++* All system calls made from user state go through this code.
 +UsrSvc leay <MakeSysCall,pcr point Y to make system call routine
 + orcc #IntMasks mask interrupts
 + lbra URtoSs go to system state
@@ -5653,68 +4407,21 @@ index c6ef534..f0d322d 100644
 + stb P$State,x in state value
 + bsr SFAProc
 + bra FNProc next process
- 
- * System state system call entry point.
- *
- * All system calls made from system state go through this code.
--SysSvc              clra                ; A = 0
--                    tfr       a,dp      ; set direct page to 0
--                    leau      ,s        ; point U to SP
--                    ldy       <D.SysDis ; get system state dispatch table ptr
--                    bsr       DoSysCall ; perform the system call
--                    rti                 ; return
++
++* System state system call entry point.
++*
++* All system calls made from system state go through this code.
 +SysSvc clra A = 0
 + tfr a,dp set direct page to 0
 + leau ,s point U to SP
 + ldy <D.SysDis get system state dispatch table ptr
 + bsr DoSysCall perform the system call
 + rti return
- 
- * This is the common system call entry point for user and system state.
- *
- * Entry: Y = The dispatch table (user or system).
- *        U = The caller's register pointer.
--DoSysCall           pshs      u         ; save off caller's register pointer
--                    ldx       R$PC,u    ; point X to PC
--                    ldb       ,x+       ; get func code at X
--                    stx       R$PC,u    ; restore updated PC
--                    lslb                ; high bit set?
--                    bcc       nonio@    ; branch if not (non I/O call)
--                    rorb                ; else restore B (its an I/O call)
--                    ldx       -2,y      ; grab IOMan vector
--                    beq       callexit@ ; just exit if IOMan vector is empty
--                    bra       execcall@ ; make system call
--nonio@              cmpb      #$37*2    ; non-IO call; are we in safe are?
--                    bcc       callerr@  ; branch if not (unknown service)
--                    ldx       b,y       ; X = address of system call
--                    beq       callerr@  ; if nil, unknown service
--execcall@           jsr       ,x        ; jsr into system call
--callexit@           puls      u         ; recover caller's registers
--                    tfr       cc,a      ; get CC into A
--                    bcc       FixCC     ; branch if no error
--                    stb       R$B,u     ; store error code
--FixCC               ldb       R$CC,u    ; get caller's CC
--                    andb      #^(Negative+Zero+TwosOvfl+Carry) ; turn off these flags
--                    stb       R$CC,u    ; save to caller's CC
--                    anda      #Negative+Zero+TwosOvfl+Carry ; turn off these flags
--                    ora       R$CC,u    ; oR with caller's CC
--                    sta       R$CC,u    ; and saved to caller's CC
--                    rts                 ; return
--callerr@            comb                ; set carry for error state
--                    ldb       #E$UnkSvc ; unknown service
--                    bra       callexit@ ; perform exit
--
--                    use       fnproc.asm ; include source file fnproc.asm
--                    use       flink.asm ; include source file flink.asm
--                    use       fvmodul.asm ; include source file fvmodul.asm
--                    use       fcrc.asm  ; include source file fcrc.asm
--                    use       ffork.asm ; include source file ffork.asm
--                    use       fchain.asm ; include source file fchain.asm
--                    use       fsrqmem.asm ; include source file fsrqmem.asm
--                    use       fallbit.asm ; include source file fallbit.asm
--                    use       fprsnam.asm ; include source file fprsnam.asm
--                    use       fcmpnam.asm ; include source file fcmpnam.asm
--                    use       fssvc.asm ; include source file fssvc.asm
++
++* This is the common system call entry point for user and system state.
++*
++* Entry: Y = The dispatch table (user or system).
++*        U = The caller's register pointer.
 +DoSysCall pshs u save off caller's register pointer
 + ldx R$PC,u point X to PC
 + ldb ,x+ get func code at X
@@ -5829,23 +4536,11 @@ index c6ef534..f0d322d 100644
 + bcs ValBoot branch if we are
 +JmpBtEr puls pc,u retore register and return to caller
 + endc
- 
- * Validate modules in memory.
- *
- * Entry: X = The address to start searching.
- *        Y = The address to stop (actually stops at Y-1).
--ValMods             pshs      y         ; save off Y
--loop@               lbsr      ValMod    ; go validate module
--                    bcs       ValErr    ; branch if error
--                    ldd       M$Size,x  ; get size of module into D
--                    leax      d,x       ; point X past module
--                    bra       valcheck  ; go check if we're at end
--ValErr              cmpb      #E$KwnMod ; did the validation check show a known module?
--                    beq       ex@       ; branch if so
--                    leax      1,x       ; else advance X by one byte
--valcheck            cmpx      ,s        ; check if we're at end
--                    bcs       loop@     ; branch if not
--ex@                 puls      y,pc      ; restore Y and return
++
++* Validate modules in memory.
++*
++* Entry: X = The address to start searching.
++*        Y = The address to stop (actually stops at Y-1).
 +ValMods pshs y save off Y
 +loop@ lbsr ValMod go validate module
 + bcs ValErr branch if error
@@ -5858,27 +4553,8 @@ index c6ef534..f0d322d 100644
 +valcheck cmpx ,s check if we're at end
 + bcs loop@ branch if not
 +ex@ puls y,pc restore Y and return
- 
- * This vector code that the kernel copies to low RAM ($0100).
--VectCode            bra       SWI3Jmp   ; $0100
--                    nop       ;         no operation placeholder
--                    bra       SWI2Jmp   ; $0103
--                    nop       ;         no operation placeholder
--                    bra       SWIJmp    ; $0106
--                    nop       ;         no operation placeholder
--                    bra       NMIJmp    ; $0109
--                    nop       ;         no operation placeholder
--                    bra       IRQJmp    ; $010C
--                    nop       ;         no operation placeholder
--                    bra       FIRQJmp   ; $010F
--SWI3Jmp             jmp       [>D.SWI3] ; transfer control to [>D.SWI3]
--SWI2Jmp             jmp       [>D.SWI2] ; transfer control to [>D.SWI2]
--SWIJmp              jmp       [>D.SWI]  ; transfer control to [>D.SWI]
--NMIJmp              jmp       [>D.NMI]  ; transfer control to [>D.NMI]
--IRQJmp              jmp       [>D.IRQ]  ; transfer control to [>D.IRQ]
--FIRQJmp             jmp       [>D.FIRQ] ; transfer control to [>D.FIRQ]
--VectCSz             equ       *-VectCode ; define assembler symbol
--
++
++* This vector code that the kernel copies to low RAM ($0100).
 +VectCode bra SWI3Jmp $0100
 + nop
 + bra SWI2Jmp $0103
@@ -5897,77 +4573,8 @@ index c6ef534..f0d322d 100644
 +IRQJmp jmp [>D.IRQ]
 +FIRQJmp jmp [>D.FIRQ]
 +VectCSz equ *-VectCode
- 
- * The system call table.
--SysTbl              fcb       F$Link    ; define byte value(s) F$Link
--                    fdb       FLink-*-2 ; define word value(s) FLink-*-2
--                    fcb       F$Fork    ; define byte value(s) F$Fork
--                    fdb       FFork-*-2 ; define word value(s) FFork-*-2
--                    fcb       F$Chain   ; define byte value(s) F$Chain
--                    fdb       FChain-*-2 ; define word value(s) FChain-*-2
--                    fcb       F$Chain+SysState ; define byte value(s) F$Chain+SysState
--                    fdb       SFChain-*-2 ; define word value(s) SFChain-*-2
--                    fcb       F$PrsNam  ; define byte value(s) F$PrsNam
--                    fdb       FPrsNam-*-2 ; define word value(s) FPrsNam-*-2
--                    fcb       F$CmpNam  ; define byte value(s) F$CmpNam
--                    fdb       FCmpNam-*-2 ; define word value(s) FCmpNam-*-2
--                    fcb       F$SchBit  ; define byte value(s) F$SchBit
--                    fdb       FSchBit-*-2 ; define word value(s) FSchBit-*-2
--                    fcb       F$AllBit  ; define byte value(s) F$AllBit
--                    fdb       FAllBit-*-2 ; define word value(s) FAllBit-*-2
--                    fcb       F$DelBit  ; define byte value(s) F$DelBit
--                    fdb       FDelBit-*-2 ; define word value(s) FDelBit-*-2
--                    fcb       F$CRC     ; define byte value(s) F$CRC
--                    fdb       FCRC-*-2  ; define word value(s) FCRC-*-2
--                    fcb       F$SRqMem+SysState ; define byte value(s) F$SRqMem+SysState
--                    fdb       FSRqMem-*-2 ; define word value(s) FSRqMem-*-2
--                    fcb       F$SRtMem+SysState ; define byte value(s) F$SRtMem+SysState
--                    fdb       FSRtMem-*-2 ; define word value(s) FSRtMem-*-2
--                    fcb       F$AProc+SysState ; define byte value(s) F$AProc+SysState
--                    fdb       FAProc-*-2 ; define word value(s) FAProc-*-2
--                    fcb       F$NProc+SysState ; define byte value(s) F$NProc+SysState
--                    fdb       FNProc-*-2 ; define word value(s) FNProc-*-2
--                    fcb       F$VModul+SysState ; define byte value(s) F$VModul+SysState
--                    fdb       FVModul-*-2 ; define word value(s) FVModul-*-2
--                    fcb       F$SSvc    ; define byte value(s) F$SSvc
--                    fdb       FSSvc-*-2 ; define word value(s) FSSvc-*-2
--                    fcb       $80       ; define byte value(s) $80
--
--InitNam             fcs       /Init/
--
--P2Nam               fcs       /krnp2/
--
--EOMTop              equ       *         ; define assembler symbol
--
--                  IFEQ    corsham+wildbits ; begin conditional assembly for corsham+wildbits
--*[[[ NOT(CORSHAM port | Wildbits port)
--                    emod
--eom                 equ       *         ; define assembler symbol
--*]]] NOT(CORSHAM port | Wildbits port)
--                  ENDC
--
--Vectors             fdb       SWI3      ; sWI3
--                    fdb       SWI2      ; sWI2
--                    fdb       DUMMY     ; fIRQ
--                    fdb       SVCIRQ    ; iRQ
--                    fdb       SWI       ; sWI
--                    fdb       SVCNMI    ; nMI
--
--                  IFNE    atari   ; begin conditional assembly for atari
--*[[[ ATARI LIBER809 port
--                    fdb       $F3FE-(*-OS9Cold) ; define word value(s) $F3FE-(*-OS9Cold)
--*]]] ATARI LIBER809 port
--                  ENDC
--
--                  IFNE    corsham+wildbits ; begin conditional assembly for corsham+wildbits
--*[[[ CORSHAM port | Wildbits port
--                    emod
--eom                 equ       *         ; define assembler symbol
--*]]] CORSHAM port | Wildbits port
--                  ENDC
--EOMSize             equ       *-EOMTop  ; define assembler symbol
--
--                    end
++
++* The system call table.
 +SysTbl fcb F$Link
 + fdb FLink-*-2
 + fcb F$Fork

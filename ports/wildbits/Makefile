@@ -26,7 +26,7 @@ KERNEL_SOURCES = $(NITROS9_KERNEL_DIR)/kernel.asm $(NITROS9_KERNEL_DIR)/fallbit.
 MODULE_SOURCES	= init.asm tkf256.asm
 
 kernel: $(KERNEL_SOURCES)
-	$(AS) $(AFLAGS) $^ -o$@
+	$(AS) $(AFLAGS) $< -o$@
 
 lint: *.asm $(KERNEL_SOURCES) $(MODULE_SOURCES)
 	$(foreach file,$^,mamou -ls -p $(file) > /tmp/lint.out; mv /tmp/lint.out $(file) ;)
@@ -45,3 +45,6 @@ gh:
 
 upload: loader
 	upload loader e000
+
+# Rebuild layout-dependent modules when shared flags or port definitions change.
+$(OBJS): $(NITROS9_KERNEL_DIR)/features.d defs.d $(DEFSDIR)/turbos.d Makefile

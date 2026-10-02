@@ -26,7 +26,7 @@ KERNEL_SOURCES = $(NITROS9_KERNEL_DIR)/kernel.asm $(NITROS9_KERNEL_DIR)/fallbit.
 MODULE_SOURCES	= init.asm tkcc.asm
 
 kernel: $(KERNEL_SOURCES)
-	$(AS) $(AFLAGS) $^ -o$@
+	$(AS) $(AFLAGS) $< -o$@
 
 lint: *.asm $(KERNEL_SOURCES) $(MODULE_SOURCES)
 	$(foreach file,$^,mamou -ls -p $(file) > /tmp/lint.out; mv /tmp/lint.out $(file) ;)
@@ -56,3 +56,6 @@ run: vdg.dsk
 
 showsizes: all
 	ls -l $(OBJS_VDG)
+
+# Rebuild layout-dependent modules when shared flags or port definitions change.
+$(MODULES) go: $(NITROS9_KERNEL_DIR)/features.d defs.d $(DEFSDIR)/turbos.d Makefile

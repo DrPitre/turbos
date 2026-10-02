@@ -45,3 +45,13 @@ ports/wildbits/kernel.dump
 ports/wildbits/loader
 ports/wildbits/*.list
 ports/wildbits/*.map
+
+ports/coco/go
+ports/turbo9sim/sleep
+ports/wildbits/go
+ports/wildbits/go2
+ports/wildbits/init
+ports/wildbits/tkf256
+ports/turbo9sim/init_lite
+ports/turbo9sim/init_core
+ports/turbo9sim/init_dev
