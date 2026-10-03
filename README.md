@@ -19,15 +19,16 @@
 
 - `ports/` — Platform-specific files for CoCo, F256, and Turbo9 simulator.
 - `source/` — TurbOS-owned modules, commands, definitions, and tests.
-- `.upstream/generated/source/kernel/` — Materialized kernel source generated
-  from the pinned NitrOS-9 revision (not committed).
+- `.upstream/generated/source/` — Shared sources copied unchanged from the
+  pinned NitrOS-9 revision (not committed).
 - `tests/` — Test programs and utilities.
 
 ### NitrOS-9 upstream
 
-TurbOS generates its complete kernel source from the canonical NitrOS-9 `main`
-branch plus a checked-in TurbOS patch. The pinned upstream revision, source
-mapping, and drift-checking workflow are documented in
+TurbOS imports shared kernel routines, IOMan, SCF, Mfree, and Procs unchanged
+from a pinned canonical NitrOS-9 revision. The kernel wrapper and interrupt
+implementation are maintained locally; no upstream patch is applied. The pinned
+revision, source mapping, and drift-checking workflow are documented in
 [`docs/nitros9-upstream.md`](docs/nitros9-upstream.md).
 
 ## FAQ
@@ -39,3 +40,12 @@ mapping, and drift-checking workflow are documented in
 **Q. Will TurbOS run on 6809-based systems?**
 
 **A.** The Turbo9 is the priority and the main target of TurbOS. There is a port to the Tandy Color Computer, mainly for testing and bring-up. Ports to other 6809 systems are possible, but aren't the focus of the project.
+
+## RLE utility tests
+
+Run the round-trip and boundary checks with a host C compiler:
+
+```sh
+cc -Wall -Wextra -Werror tests/rle/testrl.c -o /tmp/turbos-rle-test
+/tmp/turbos-rle-test
+```

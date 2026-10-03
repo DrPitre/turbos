@@ -1,0 +1,3 @@
+* TurbOS definitions adapter for unchanged NitrOS-9 modules.
+ use defs.d
+ use scf.d

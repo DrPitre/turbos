@@ -320,6 +320,13 @@ CM$Feature2 rmb 1 feature byte 2
 
 * NitrOS-9 names used by the shared Level 1 routines.
 C$SPAC set C$SPACE
+SS.DStat equ $12
+SS.ScSiz equ $26
+C$COMA set C$COMMA
+C$PERD set C$PERIOD
+DevCnt equ CM$DevCnt
+PollCnt equ CM$PollCnt
+D.CLTb equ D.VIRQTable
  ifne _FF_BOOTING
 BootStr equ CM$BootMod
  endc

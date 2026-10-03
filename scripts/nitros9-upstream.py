@@ -4,8 +4,7 @@
 from __future__ import annotations
 
 import argparse
-import re
-import shutil
+import tempfile
 import subprocess
 import sys
 from pathlib import Path
@@ -14,7 +13,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 LOCK = ROOT / "upstream" / "nitros9.rev"
 MANIFEST = ROOT / "upstream" / "nitros9.sources"
-PATCH = ROOT / "upstream" / "nitros9-turbos.patch"
 DEFAULT_CHECKOUT = ROOT / ".upstream" / "nitros9"
 
 
@@ -43,20 +41,20 @@ def fetch(checkout: Path) -> None:
     run("git", "checkout", "--detach", lock["NITROS9_REVISION"], cwd=checkout)
 
 
-def semantic_lines(path: Path) -> list[str]:
-    lines: list[str] = []
-    for raw in path.read_text(errors="replace").splitlines():
-        stripped = raw.lstrip()
-        if not stripped or stripped.startswith("*") or stripped.startswith(";"):
-            continue
-        lines.append(re.sub(r"\s+", " ", stripped).lower())
-    return lines
-
-
 def mappings():
     for line in MANIFEST.read_text().splitlines():
         if line and not line.startswith("#"):
-            yield line.split("|", 2)
+            relationship, local_name, upstream_name = line.split("|", 2)
+            if relationship not in ("exact-code", "rewritten"):
+                raise ValueError(f"Unsupported source relationship: {relationship}")
+            yield relationship, local_name, upstream_name
+
+
+def pinned_bytes(checkout: Path, upstream_name: str) -> bytes:
+    return subprocess.check_output(
+        ("git", "show", f"{read_lock()['NITROS9_REVISION']}:{upstream_name}"),
+        cwd=checkout,
+    )
 
 
 def check(checkout: Path) -> int:
@@ -74,29 +72,55 @@ def check(checkout: Path) -> int:
         return 2
 
     failures = 0
-    totals = {"exact-code": 0, "adapted": 0, "rewritten": 0}
+    totals = {"exact-code": 0, "rewritten": 0}
     for relationship, local_name, upstream_name in mappings():
         local = ROOT / local_name
         generated = ROOT / ".upstream" / "generated" / local_name
         upstream = checkout / upstream_name
-        comparison = generated if relationship in ("exact-code", "adapted") else local
+        comparison = generated if relationship == "exact-code" else local
         if not comparison.is_file() or not upstream.is_file():
             print(f"MISSING     {comparison.relative_to(ROOT)} <- {upstream_name}")
             failures += 1
             continue
-        same = semantic_lines(comparison) == semantic_lines(upstream)
-        actual = "exact-code" if same else relationship
-        totals[actual] += 1
-        if relationship == "exact-code" and comparison.read_bytes() != upstream.read_bytes():
+        totals[relationship] += 1
+        if relationship == "exact-code" and comparison.read_bytes() != pinned_bytes(checkout, upstream_name):
             print(f"DRIFT       {local_name} <- {upstream_name}")
             failures += 1
 
     print(
         "NitrOS-9 relationship: "
         f"{totals['exact-code']} exact-code, "
-        f"{totals['adapted']} adapted, {totals['rewritten']} rewritten"
+        f"{totals['rewritten']} TurbOS-owned"
     )
     return 1 if failures else 0
+
+
+def populate(checkout: Path, destination: Path) -> int:
+    """Copy shared sources verbatim; never apply local transformations."""
+    destination.mkdir(parents=True, exist_ok=True)
+    imported = {local for relationship, local, _ in mappings()
+                if relationship == "exact-code"}
+    # Prune old forks without removing current inputs used by other port builds.
+    for stale in (destination / "source").rglob("*.asm"):
+        if str(stale.relative_to(destination)) not in imported:
+            stale.unlink(missing_ok=True)
+    copied = 0
+    for relationship, local_name, upstream_name in mappings():
+        if relationship != "exact-code":
+            continue
+        output = destination / local_name
+        output.parent.mkdir(parents=True, exist_ok=True)
+        data = pinned_bytes(checkout, upstream_name)
+        # Concurrent port builds must never see a partially written include.
+        with tempfile.NamedTemporaryFile(dir=output.parent, delete=False) as temporary:
+            temporary.write(data)
+            temporary_path = Path(temporary.name)
+        try:
+            temporary_path.replace(output)
+        finally:
+            temporary_path.unlink(missing_ok=True)
+        copied += 1
+    return copied
 
 
 def materialize(checkout: Path) -> int:
@@ -118,24 +142,8 @@ def materialize(checkout: Path) -> int:
         return 2
 
     destination = ROOT / ".upstream" / "generated"
-    destination.mkdir(parents=True, exist_ok=True)
-    copied = 0
-    for relationship, local_name, upstream_name in mappings():
-        if relationship not in ("exact-code", "adapted"):
-            continue
-        upstream = checkout / upstream_name
-        if not upstream.is_file():
-            print(f"Upstream source not found: {upstream}", file=sys.stderr)
-            return 2
-        output = destination / local_name
-        output.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(upstream, output)
-        copied += 1
-    run(
-        "git", "apply", "--whitespace=nowarn",
-        "--directory=.upstream/generated", str(PATCH), cwd=ROOT,
-    )
-    print(f"Materialized and patched {copied} NitrOS-9 sources in {destination}")
+    copied = populate(checkout, destination)
+    print(f"Materialized unchanged {copied} NitrOS-9 sources in {destination}")
     return check(checkout)
 
 

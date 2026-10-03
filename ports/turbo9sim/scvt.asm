@@ -163,13 +163,17 @@ GetStt
  beq SSEOF Yes, exit w/o error
  ldx PD.RGS,y Get ptr to caller's regs (all other calls require this)
  cmpa #SS.Ready Data ready call? (keyboard buffer)
- bne L0439 No, check next
+ bne UnknownStat unsupported status request
  lda V.IBufH,u get buff tail ptr
  suba V.IBufT,u num of chars ready in A
  sta R$B,x Save for caller
  lbeq NotReady If no data in keyboard buffer, return with Not Ready error
 L0439
 SSEOF clrb
+ rts
+
+UnknownStat comb
+ ldb #E$UnkSvc
  rts
 
 NotReady comb No, exit with Not Ready error

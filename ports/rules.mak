@@ -46,13 +46,12 @@ NITROS9_DERIVED_SOURCES = $(NITROS9_KERNEL_DIR)/features.d \
 	$(NITROS9_KERNEL_DIR)/fnproc.asm $(NITROS9_KERNEL_DIR)/fvmodul.asm \
 	$(NITROS9_KERNEL_DIR)/fwait.asm $(NITROS9_KERNEL_DIR)/iocall.asm \
 	$(NITROS9_KERNEL_DIR)/fcmpnam.asm $(NITROS9_KERNEL_DIR)/fprsnam.asm \
-	$(NITROS9_KERNEL_DIR)/fsleep.asm $(NITROS9_KERNEL_DIR)/kernel.asm \
-	$(NITROS9_KERNEL_DIR)/firq.asm \
+	$(NITROS9_KERNEL_DIR)/fsleep.asm \
 	$(NITROS9_COMMAND_DIR)/mfree.asm $(NITROS9_COMMAND_DIR)/procs.asm \
 	$(NITROS9_MODULE_DIR)/ioman.asm $(NITROS9_MODULE_DIR)/scf.asm
 
 # Assembler definitions
-KERNELINCLUDES      = --includedir=$(NITROS9_KERNEL_DIR) --includedir=$(TURBOSDIR)/source/kernel
+KERNELINCLUDES      = --includedir=$(TURBOSDIR)/source/kernel --includedir=$(NITROS9_KERNEL_DIR)
 AS                  = lwasm --6309 --format=os9 --pragma=pcaspcr,nosymbolcase,condundefzero,undefextern,dollarnotlocal,noforwardrefmax --includedir=. --includedir=$(DEFSDIR) $(KERNELINCLUDES)
 ASROM               = lwasm --6309 --format=raw --pragma=pcaspcr,nosymbolcase,condundefzero,undefextern,dollarnotlocal,noforwardrefmax --includedir=. --includedir=$(DEFSDIR) $(KERNELINCLUDES)
 ASBIN               = lwasm --6309 --format=decb --pragma=pcaspcr,nosymbolcase,condundefzero,undefextern,dollarnotlocal,noforwardrefmax --includedir=. --includedir=$(DEFSDIR) $(KERNELINCLUDES)
@@ -93,10 +92,20 @@ LOSETUP             = sudo losetup
 LINK                = ln
 SOFTLINK            = $(LINK) -s
 ARCHIVE             = zip -D -9 -j
-MKDSKINDEX          = perl $(TURBOSDIR)/scripts/mkdskindex
 
-$(NITROS9_DERIVED_SOURCES): $(NITROS9_IMPORTER) $(TURBOSDIR)/upstream/nitros9.sources $(TURBOSDIR)/upstream/nitros9.rev $(TURBOSDIR)/upstream/nitros9-turbos.patch
+# One producer for the complete generated set (compatible with Make 3.81).
+NITROS9_STAMP = $(TURBOSDIR)/.upstream/generated/.materialized
+ifneq ($(words $(wildcard $(NITROS9_DERIVED_SOURCES))),$(words $(NITROS9_DERIVED_SOURCES)))
+.PHONY: nitros9-missing
+$(NITROS9_STAMP): nitros9-missing
+endif
+
+$(NITROS9_STAMP): $(NITROS9_IMPORTER) $(TURBOSDIR)/upstream/nitros9.sources $(TURBOSDIR)/upstream/nitros9.rev
 	python3 $(NITROS9_IMPORTER) materialize --checkout $(NITROS9_CHECKOUT)
+	touch $@
+
+$(NITROS9_DERIVED_SOURCES): $(NITROS9_STAMP)
+	@test -f $@
 
 # C Rules
 %.o: %.c

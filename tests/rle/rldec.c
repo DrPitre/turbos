@@ -1,7 +1,7 @@
 /*
  * RLE decoder.
  *
- * For the worst case, the dst buffer needs to be twice as large as the src.
+ * The caller must provide space for the sum of all encoded run counts.
  *
  * Example 1:
  * 12 bytes of input: [1]A[1]B[1]A[3]C[1]A[1]B
@@ -14,6 +14,9 @@
 
 int rldec(unsigned char *src, unsigned char *dst, int src_size)
 {
+    if (src_size < 0 || src_size % 2 != 0)
+        return -1;
+
     int dst_size = 0;
     
     for (int i = 0; i < src_size; i++) {
