@@ -163,13 +163,17 @@ GetStt
  beq SSEOF Yes, exit w/o error
  ldx PD.RGS,y Get ptr to caller's regs (all other calls require this)
  cmpa #SS.Ready Data ready call? (keyboard buffer)
- bne L0439 No, check next
+ bne UnknownStat unsupported status request
  lda V.IBufH,u get buff tail ptr
  suba V.IBufT,u num of chars ready in A
  sta R$B,x Save for caller
  lbeq NotReady If no data in keyboard buffer, return with Not Ready error
 L0439
 SSEOF clrb
+ rts
+
+UnknownStat comb
+ ldb #E$UnkSvc
  rts
 
 NotReady comb No, exit with Not Ready error
@@ -192,10 +196,11 @@ SetStt clrb
  
 IRQSvc
  ldx V.PORT,u base hardware address
- lda Reg.Stat,x
- anda #~Ctrl.TermIRQ clear interrupt
+ lda Term.In,x read character before acknowledging interrupt
+ pshs a
+ lda #Term.RxReady acknowledge only the terminal source (write-one-to-clear)
  sta Reg.Stat,x
- lda Term.In,x
+ puls a
  ldb V.IBufH,u get head pointer in B
  leax V.InBuf,u point X to input buffer
  abx X now holds address of head

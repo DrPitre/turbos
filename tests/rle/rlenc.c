@@ -14,26 +14,23 @@
 
 int rlenc(unsigned char *src, unsigned char *dst, int src_size)
 {
+    if (src_size <= 0)
+        return 0;
+
     unsigned char rle_count = 1;
-    unsigned char *dstPtr = dst;
+    unsigned char rle_byte = src[0];
     int dst_size = 0;
-    char rle_byte = src[0];
-    
-    for (int i = 1; i <= src_size; i++) {
-        // Compare the byte.
-        if (src[i] == rle_byte && rle_count <= 255 && i < src_size) {
+    for (int i = 1; i < src_size; i++) {
+        if (src[i] == rle_byte && rle_count < 255) {
             rle_count++;
         } else {
-            // Either we've found a different value at src[i], or we've exceeded the 255 byte RLE count. 
-            *dstPtr = rle_count;
-            dstPtr++;
-            *dstPtr = rle_byte;
-            dstPtr++;
-            dst_size += 2;
+            dst[dst_size++] = rle_count;
+            dst[dst_size++] = rle_byte;
             rle_count = 1;
             rle_byte = src[i];
         }
     }
-    
+    dst[dst_size++] = rle_count;
+    dst[dst_size++] = rle_byte;
     return dst_size;
 }

@@ -1,118 +1,84 @@
-# NitrOS-9 upstream relationship
+# NitrOS-9 shared sources
 
-TurbOS's Level 1 implementation is based on the canonical NitrOS-9 project's
-feature-flag branch at the revision pinned in `upstream/nitros9.rev`. The current pin
-is commit `25bdda10fa1d34bb0f58bddef4f8e3d9f96bf51f` on
-`codex/level1-turbos-feature-flags` (NitrOS-9 PR #442), from
+TurbOS uses shared NitrOS-9 assembly unchanged. No patch is applied during
+source generation or builds.
+
+`upstream/nitros9.rev` pins the canonical repository and commit. The current
+pin is `25bdda10fa1d34bb0f58bddef4f8e3d9f96bf51f`, on
+`codex/level1-turbos-feature-flags`, from
 `https://github.com/nitros9project/nitros9.git`.
 
-Earlier TurbOS work was traced to the obsolete `n6il/nitros9` `f256-port`
-branch. That repository and branch are historical provenance only; neither is
-used by the build.
+## Source ownership
 
-## Classification
+`upstream/nitros9.sources` maps the source boundary:
 
-`upstream/nitros9.sources` records every known source relationship:
+- 31 `exact-code` files are imported byte for byte: the shared kernel routines
+  and feature header, IOMan, SCF, Mfree, and Procs.
+- Four `rewritten` files are TurbOS-owned: the kernel wrapper, kernel interrupt
+  implementation, Init, and Mdir. Their mappings document historical ancestry;
+  they are not generated from or patched onto NitrOS-9.
 
-- `exact-code`: generated directly from the pinned NitrOS-9 checkout without a
-  TurbOS delta.
-- `adapted`: generated from NitrOS-9 and transformed by the checked-in
-  `upstream/nitros9-turbos.patch` containing meaningful TurbOS changes.
-- `rewritten`: historical ancestry remains, but the implementation has
-  substantially diverged.
+Other local files implement TurbOS commands, definitions, platform hardware,
+and test programs. The kernel wrapper lives in `source/kernel/kernel.asm` and
+includes the unchanged routines from `.upstream/generated/source/kernel/`.
+`source/kernel/firq.asm` supplies the local interrupt implementation. IOMan
+also provides its own upstream interrupt services when enabled.
 
-All TurbOS kernel assembly is materialized from NitrOS-9. The TurbOS kernel
-wrapper and FIRQ implementation both use NitrOS-9's `krn.asm` as their
-provenance base and are transformed into separate generated files by the patch.
+## Building and auditing
 
-The following non-kernel files are TurbOS-owned and have no direct file
-counterpart in the imported NitrOS-9 set:
-
-- `source/commands/shell.asm`
-- `source/commands/sleep.asm`
-- `source/include/scf.d`
-- `source/include/turbo9sim.d`
-- `source/include/turbos.d`
-
-## Reproducible workflow
-
-Fetch the pinned source and audit the boundary:
+For a fresh checkout:
 
 ```sh
 python3 scripts/nitros9-upstream.py fetch
-python3 scripts/nitros9-upstream.py check
 python3 scripts/nitros9-upstream.py materialize
+python3 scripts/nitros9-upstream.py check
+make -C ports/coco
+make -C ports/turbo9sim
+make -C ports/wildbits
 ```
 
-The checkout is stored under `.upstream/nitros9` and is intentionally ignored
-by Git. The three port Makefiles consume 21 `exact-code` and 12 `adapted`
-sources from the materialized `.upstream/generated/source` directory. Only two
-mapped, non-kernel files remain locally rewritten. If an
-imported file is missing, or the manifest or patch changes, `make` runs the
-materialization step; it never performs an implicit network fetch.
-Materialization also refuses to use a checkout whose `HEAD` is not the pinned
-revision.
+The ignored `.upstream/nitros9` checkout stores upstream history.
+`.upstream/generated/source` contains unchanged copies of the pinned commit's
+files. The importer reads Git objects at that commit, so working-tree edits
+cannot silently enter a build. It refuses a checkout with the wrong HEAD,
+removes obsolete generated sources, and audits every import byte for byte.
 
-### Shared kernel feature switches
+A shared stamp makes source generation run once per make invocation, including
+forced parallel CoCo builds. Missing imported files trigger regeneration.
+Builds never fetch from the network implicitly. Override `TURBOSDIR` to select
+another TurbOS checkout; otherwise each port resolves its own repository root.
 
-All three ports include the unmodified NitrOS-9 `features.d` before defining
-layout-dependent TurbOS structures. The shared switches are `_FF_MODCHECK`,
-`_FF_UNIFIED_IO`, `_FF_BOOTING`, `_FF_ID`, `_FF_SPRIOR`, `_FF_SSWI`, and
-`_FF_IRQ_POLL`. They default to enabled upstream; TurbOS selects its profile
-before including them. The simulator profiles now use `_FF_SSWI` consistently;
-`_FF_SWI` remains an upstream compatibility alias.
-
-`ffork.asm`, `fexit.asm`, `fvmodul.asm`, and `iocall.asm` are imported unchanged.
-Their feature conditionals live solely in NitrOS-9. TurbOS supplies the OS-9
-spelling aliases `C$SPAC` and `BootStr` in its definitions rather than patching
-these routines. The importer checks every `exact-code` file byte for byte and
-rejects the wrong pinned revision. All layout-dependent build targets depend on
-`features.d`, the port definitions, and the profile Makefile. The simulator
-also builds a separate Init module for each profile, with optional fields
-matching that kernel's layout.
-
-`_FF_WALLTIME` and `_FF_VIRQ_POLL` still belong to TurbOS's tick generators;
-they are not implemented by the upstream kernel feature header yet.
-
-### Remaining adaptations
-
-The shared routines above no longer have a TurbOS patch. These adaptations remain:
-
-- `fchain.asm`, `fnproc.asm`, and `fwait.asm` retain TurbOS execution and
-  scheduler differences.
-- `mfree.asm`, `procs.asm`, `ioman.asm`, and `scf.asm` retain TurbOS module,
-  command, and definitions interfaces.
-
-Five additional kernel files are now generated from NitrOS-9 bases even though
-their TurbOS patches replace substantial portions of those bases:
-`fcmpnam.asm`, `fprsnam.asm`, `fsleep.asm`, `kernel.asm`, and `firq.asm`.
-
-For an existing checkout, avoid a second clone with:
+To use an existing upstream checkout:
 
 ```sh
-python3 scripts/nitros9-upstream.py check --checkout /path/to/nitros9
 python3 scripts/nitros9-upstream.py materialize --checkout /path/to/nitros9
+python3 scripts/nitros9-upstream.py check --checkout /path/to/nitros9
 ```
 
-After PR #442 merges, the branch may be changed back to `main` with an
-appropriate pin. The current pin is already available remotely.
+## Definitions and feature switches
 
-Before advancing the pin, compare the old and new NitrOS-9 revisions for every
-path in the manifest. Apply upstream changes first to `exact-code` files, then
-manually reconcile `adapted` and `rewritten` files. A pin update should include
-the resulting source changes in the same commit.
+All ports include the unchanged upstream `features.d`. TurbOS profiles select
+`_FF_MODCHECK`, `_FF_UNIFIED_IO`, `_FF_BOOTING`, `_FF_ID`, `_FF_SPRIOR`,
+`_FF_SSWI`, and `_FF_IRQ_POLL`. Upstream defaults retain the complete kernel.
+`_FF_WALLTIME` and `_FF_VIRQ_POLL` configure the local tick generators.
 
-## Upstreaming policy
+`source/include/defsfile` adapts the conventional upstream definitions entry
+point to the port's `defs.d` and SCF definitions. `turbos.d` supplies aliases
+for upstream character, Init, and VIRQ table names and the standard display
+status codes. These definition aliases do not modify shared assembly files.
 
-Changes that fix general OS-9 behavior should be proposed to NitrOS-9 first.
-Turbo9 instructions, simulator integration, the TurbOS kernel wrapper, and
-TurbOS-specific ABI or memory-layout changes remain local. This keeps NitrOS-9
-authoritative for shared routines without pretending the two systems are still
-source-identical everywhere.
+## Updating shared code
 
-## Validation for the feature-flag migration
+Fix shared routines in NitrOS-9. Advance the revision pin after those changes
+are available there, then regenerate, audit, build, and run the affected ports.
+Keep platform initialization, hardware support, and the TurbOS wrapper local.
+Do not reintroduce a patch or a local copy of a shared routine.
 
-The Lite, Core, Dev, and smoke simulator images assemble, the CoCo disk image
-builds, and the Wildbits loader builds. Materialization and the exact-source
-audit pass against the pinned feature-flag commit. These are build checks;
-runtime boot and disabled-feature behavior still need emulator/hardware testing.
+The former `n6il/nitros9` `f256-port` source is historical provenance only.
+It is not used by the build.
+
+## Validation
+
+The Lite, Core, Dev, and smoke simulator images, CoCo disk, and Wildbits loader
+build with unchanged shared sources. Runtime checks use the Turbo9 RTL boot and
+shell regressions and XRoar with a 64 KB CoCo. Physical hardware remains untested.
