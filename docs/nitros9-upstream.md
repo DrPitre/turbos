@@ -1,7 +1,7 @@
 # NitrOS-9 shared sources
 
-TurbOS uses shared NitrOS-9 assembly unchanged. No patch is applied during
-source generation or builds.
+TurbOS imports shared NitrOS-9 assembly unchanged, except for Shell, which is
+generated from the pinned upstream source with conditional TurbOS adaptations.
 
 `upstream/nitros9.rev` pins the canonical repository and commit. The current
 pin is `25bdda10fa1d34bb0f58bddef4f8e3d9f96bf51f`, on
@@ -12,11 +12,14 @@ pin is `25bdda10fa1d34bb0f58bddef4f8e3d9f96bf51f`, on
 
 `upstream/nitros9.sources` maps the source boundary:
 
-- 31 `exact-code` files are imported byte for byte: the shared kernel routines
-  and feature header, IOMan, SCF, Mfree, and Procs.
-- Four `rewritten` files are TurbOS-owned: the kernel wrapper, kernel interrupt
-  implementation, Init, and Mdir. Their mappings document historical ancestry;
-  they are not generated from or patched onto NitrOS-9.
+- 33 `exact-code` files are imported byte for byte: the shared kernel routines
+  and feature header, IOMan, SCF, Mfree, Mdir, Procs, and Sleep.
+- One `conditional` file, Shell, is generated from the pinned NitrOS-9 source.
+  At assembly time it selects TurbOS-specific behavior with `TURBOS`; without
+  that define it uses NitrOS-9 behavior, including the `OS9:` prompt.
+- Three `rewritten` files are TurbOS-owned: the kernel wrapper, kernel
+  interrupt implementation, and Init. Their mappings document historical
+  ancestry; they are not generated from or patched onto NitrOS-9.
 
 Other local files implement TurbOS commands, definitions, platform hardware,
 and test programs. The kernel wrapper lives in `source/kernel/kernel.asm` and
@@ -38,9 +41,9 @@ make -C ports/wildbits
 ```
 
 The ignored `.upstream/nitros9` checkout stores upstream history.
-`.upstream/generated/source` contains unchanged copies of the pinned commit's
-files. The importer reads Git objects at that commit, so working-tree edits
-cannot silently enter a build. It refuses a checkout with the wrong HEAD,
+`.upstream/generated/source` contains copies derived from the pinned commit.
+The importer reads Git objects at that commit, so working-tree edits cannot
+silently enter a build. It refuses a checkout with the wrong HEAD,
 removes obsolete generated sources, and audits every import byte for byte.
 
 A shared stamp makes source generation run once per make invocation, including

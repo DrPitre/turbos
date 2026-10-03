@@ -96,6 +96,15 @@ mfree: $(NITROS9_COMMAND_DIR)/mfree.asm
 
 procs: $(NITROS9_COMMAND_DIR)/procs.asm
 	$(AS) $(AFLAGS) $< -o$@
+
+shell: $(NITROS9_COMMAND_DIR)/shell.asm
+	$(AS) $(AFLAGS) -DTURBOS=1 $< -o$@
+
+mdir: $(NITROS9_COMMAND_DIR)/mdir.asm
+	$(AS) $(AFLAGS) $< -o$@
+
+sleep: $(NITROS9_COMMAND_DIR)/sleep.asm
+	$(AS) $(AFLAGS) $< -o$@
 	
 tkt9sim_full: tkt9sim.asm
 	$(AS) $(KERNEL_FULL) $< -o$@

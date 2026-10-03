@@ -26,7 +26,6 @@ exact-code|source/kernel/fwait.asm|level1/modules/kernel/fwait.asm
 exact-code|source/kernel/iocall.asm|level1/modules/kernel/iocall.asm
 exact-code|source/modules/ioman.asm|level1/modules/ioman.asm
 exact-code|source/modules/scf.asm|level1/modules/scf.asm
-rewritten|source/commands/mdir.asm|level1/cmds/mdir.asm
 exact-code|source/kernel/fcmpnam.asm|level1/modules/kernel/fcmpnam.asm
 exact-code|source/kernel/fprsnam.asm|level1/modules/kernel/fprsnam.asm
 exact-code|source/kernel/fsleep.asm|level1/modules/kernel/fsleep.asm
@@ -34,3 +33,6 @@ rewritten|source/modules/init.asm|level1/modules/init.asm
 rewritten|source/kernel/kernel.asm|level1/modules/kernel/krn.asm
 rewritten|source/kernel/firq.asm|level1/modules/kernel/krn.asm
 exact-code|source/kernel/features.d|level1/modules/kernel/features.d
+exact-code|source/commands/mdir.asm|level1/cmds/mdir.asm
+exact-code|source/commands/sleep.asm|level1/cmds/sleep.asm
+conditional|source/commands/shell.asm|level1/cmds/shell_21.asm

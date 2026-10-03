@@ -48,6 +48,8 @@ NITROS9_DERIVED_SOURCES = $(NITROS9_KERNEL_DIR)/features.d \
 	$(NITROS9_KERNEL_DIR)/fcmpnam.asm $(NITROS9_KERNEL_DIR)/fprsnam.asm \
 	$(NITROS9_KERNEL_DIR)/fsleep.asm \
 	$(NITROS9_COMMAND_DIR)/mfree.asm $(NITROS9_COMMAND_DIR)/procs.asm \
+	$(NITROS9_COMMAND_DIR)/mdir.asm $(NITROS9_COMMAND_DIR)/sleep.asm \
+	$(NITROS9_COMMAND_DIR)/shell.asm \
 	$(NITROS9_MODULE_DIR)/ioman.asm $(NITROS9_MODULE_DIR)/scf.asm
 
 # Assembler definitions
